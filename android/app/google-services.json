@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "88500496766",
+    "project_id": "myarrange-b4358",
+    "storage_bucket": "myarrange-b4358.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:88500496766:android:cd6dfdf9c967b80bd5ab2f",
+        "android_client_info": {
+          "package_name": "com.ghardekho"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkAOg6eF33R4Cc6YGmaYTnipRk6O3jefc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
