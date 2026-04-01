@@ -15,14 +15,15 @@ module.exports = {
         'subheading': ['12px', { lineHeight: '18px', fontWeight: '600' }],
       },
       colors: {
-        primary: '#3c8b27',
-        secondary: '#000000',
-        cars: '#106099',
-        garage: '#EF4444',
-        spareparts: '#FFA828',
-        otherservice: '#79B3B9',
-        'heading-default': '#1F2937',
-        'subheading-default': '#6B7280',
+        primary: '#122A47',
+        secondary: '#D1A14E',
+        tertiary: '#D1A14E',
+        neutral: '#777779',
+        surface: '#faf9fc',
+        dark: '#1b1c1e',
+        'surface-input': '#e3e2e5',
+        'surface-input-alt': '#e9e7ea',
+        outline: '#c4c6ce'
       },
       animation: {
         pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
