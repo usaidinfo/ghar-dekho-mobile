@@ -50,7 +50,7 @@ const ProfileGuestCard: React.FC<ProfileGuestCardProps> = ({
           colors={[...GRADIENT_COLORS]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="items-center justify-center rounded-full py-4"
+          style={styles.loginGradient}
         >
           {loginLoading ? (
             <ActivityIndicator color="#ffffff" />
@@ -80,6 +80,14 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
+  },
+  /** `LinearGradient` is not a NativeWind component — use `style` only. */
+  loginGradient: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9999,
+    paddingVertical: 16,
   },
 });
 

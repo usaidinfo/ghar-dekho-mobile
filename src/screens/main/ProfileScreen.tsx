@@ -1,23 +1,42 @@
 import React from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Linking, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { Button } from '../../components/ui/Button';
+
 import ProfileDecorativeBackground from '../../components/profile/ProfileDecorativeBackground';
 import ProfileGuestHeader from '../../components/profile/ProfileGuestHeader';
 import ProfileGuestCard from '../../components/profile/ProfileGuestCard';
 import ProfileGuestHints from '../../components/profile/ProfileGuestHints';
+import ProfileSignedInHeader from '../../components/profile/signed-in/ProfileSignedInHeader';
+import ProfileIdentitySection from '../../components/profile/signed-in/ProfileIdentitySection';
+import ProfileStatsSection from '../../components/profile/signed-in/ProfileStatsSection';
+import ProfileAgentCard from '../../components/profile/signed-in/ProfileAgentCard';
+import ProfileSettingsSection from '../../components/profile/signed-in/ProfileSettingsSection';
+import ProfileLogoutSection from '../../components/profile/signed-in/ProfileLogoutSection';
+
 import { useAuthStore } from '../../stores/auth.store';
 import type { BottomTabParamList, MainStackParamList } from '../../navigation/types';
+import type { ProfileType } from '../../types/auth.types';
+import appPackage from '../../../package.json';
 
 type ProfileNav = CompositeNavigationProp<
   BottomTabNavigationProp<BottomTabParamList, 'Profile'>,
   NativeStackNavigationProp<MainStackParamList>
 >;
+
+const isAgentProfile = (t: ProfileType) => t === 'AGENT' || t === 'BROKER';
+
+/** Same horizontal inset as `HomeScreen` / home sections (`paddingHorizontal: 24`). */
+const HOME_EDGE = 24;
+
+const profileScrollStyles = StyleSheet.create({
+  /** Avoid `contentContainerClassName` + `contentContainerStyle` together (RN / NativeWind quirks). */
+  content: { paddingHorizontal: HOME_EDGE, flexGrow: 1 },
+  contentSignedIn: { paddingHorizontal: HOME_EDGE, paddingTop: 8, flexGrow: 1 },
+});
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileNav>();
@@ -48,21 +67,18 @@ const ProfileScreen: React.FC = () => {
 
   const tabBarPad = Math.max(insets.bottom, 14) + 72;
 
-  if (!isSignedIn) {
+  if (!isSignedIn || !user) {
     return (
       <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
         <View className="flex-1">
           <ProfileDecorativeBackground />
           <ScrollView
             className="flex-1"
-            contentContainerStyle={{
-              flexGrow: 1,
-              paddingBottom: tabBarPad,
-            }}
+            contentContainerStyle={[profileScrollStyles.content, { paddingBottom: tabBarPad }]}
             showsVerticalScrollIndicator={false}
           >
             <ProfileGuestHeader />
-            <View className="flex-1 items-center justify-center px-6 py-4">
+            <View className="flex-1 items-center justify-center py-4">
               <View className="w-full max-w-md">
                 <ProfileGuestCard onLogin={openLogin} onSignup={openSignup} />
                 <ProfileGuestHints />
@@ -74,37 +90,54 @@ const ProfileScreen: React.FC = () => {
     );
   }
 
+  const versionLabel = `App version ${appPackage.version} (Heritage edition)`;
+
   return (
-    <SafeAreaView className="flex-1 bg-surface">
+    <SafeAreaView className="flex-1 bg-surface" edges={['top']}>
+      <ProfileSignedInHeader
+        onNotificationsPress={() => navigation.navigate('Notifications')}
+        onSettingsPress={() => navigation.navigate('EditProfile')}
+      />
       <ScrollView
-        contentContainerStyle={{ paddingBottom: tabBarPad, paddingHorizontal: 24, paddingTop: 24 }}
+        className="flex-1"
+        contentContainerStyle={[profileScrollStyles.contentSignedIn, { paddingBottom: tabBarPad }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text className="mb-1 text-[28px] font-extrabold tracking-tight text-dark">Profile</Text>
-        <Text className="mb-10 text-base text-neutral">Manage your account</Text>
+        <ProfileIdentitySection
+          displayName={displayName || 'Member'}
+          subtitle={subtitle}
+          profileImageUri={user.profile?.profileImage}
+          profileType={user.profileType}
+          isEmailVerified={user.isEmailVerified}
+          isPhoneVerified={user.isPhoneVerified}
+        />
 
-        <View className="mb-8 rounded-3xl border border-outline bg-white p-6 shadow-sm">
-          <View className="flex-row items-center gap-4">
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-              <Icon name="account" size={36} color="#122A47" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-dark">{displayName || 'Member'}</Text>
-              {subtitle ? <Text className="mt-1 text-sm text-neutral">{subtitle}</Text> : null}
-              <Text className="mt-2 text-xs uppercase tracking-wider text-neutral">
-                {user?.profileType?.replace('_', ' ') ?? ''}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <ProfileStatsSection
+          wishlistCount={0}
+          listingsCount={0}
+          onViewWishlist={() => navigation.navigate('Home')}
+          onManageListings={() => navigation.navigate('Post')}
+        />
 
-        <View className="gap-3">
-          {loggingOut ? (
-            <ActivityIndicator size="small" color="#122A47" />
-          ) : (
-            <Button title="Log out" variant="outline" onPress={onLogout} />
-          )}
-        </View>
+        {isAgentProfile(user.profileType) ? (
+          <ProfileAgentCard
+            agencyName="Heritage Realty"
+            rating="4.8"
+            reviewCountLabel="(240 reviews)"
+            onAgentDashboard={() => navigation.navigate('Post')}
+          />
+        ) : null}
+
+        <ProfileSettingsSection
+          onEditProfile={() => navigation.navigate('EditProfile')}
+          onMyActivity={() => navigation.navigate('History')}
+          onNotifications={() => navigation.navigate('Notifications')}
+          onHelp={() => {
+            Linking.openURL('mailto:support@ghardekho.com?subject=Help%20%26%20Support').catch(() => undefined);
+          }}
+        />
+
+        <ProfileLogoutSection appVersionLabel={versionLabel} loggingOut={loggingOut} onLogout={onLogout} />
       </ScrollView>
     </SafeAreaView>
   );
