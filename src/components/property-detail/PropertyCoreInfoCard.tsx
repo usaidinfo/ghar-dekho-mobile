@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   formatFacing,
@@ -9,21 +9,11 @@ import {
   formatSqFt,
 } from '../../utils/propertyDisplay';
 
-interface StatCellProps {
-  label: string;
-  value: string;
-}
-
-const StatCell: React.FC<StatCellProps> = ({ label, value }) => (
-  <View
-    className="min-h-[96px] w-[47%] items-center justify-center rounded-full border border-outline-light bg-surface-muted px-3 py-4"
-  >
-    <Text className="mb-1 text-center text-[9px] font-black uppercase tracking-widest text-slate-muted">{label}</Text>
-    <Text className="text-center text-sm font-bold text-primary" numberOfLines={2}>
-      {value}
-    </Text>
-  </View>
-);
+const PRIMARY = '#122A47';
+const TEAL = '#008080';
+const MUTED = '#4A5568';
+const OUTLINE = '#E2E8F0';
+const SURFACE_LOW = '#F8F9FA';
 
 interface PropertyCoreInfoCardProps {
   price: number;
@@ -33,11 +23,21 @@ interface PropertyCoreInfoCardProps {
   isVerified: boolean;
   builtUpArea?: number | null;
   carpetArea?: number | null;
+  superBuiltUpArea?: number | null;
   furnishing?: string | null;
   ageOfProperty?: number | null;
   facing?: string | null;
   bhk?: number | null;
 }
+
+const StatCell: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <View style={styles.statCell}>
+    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={styles.statValue} numberOfLines={2}>
+      {value}
+    </Text>
+  </View>
+);
 
 const PropertyCoreInfoCard: React.FC<PropertyCoreInfoCardProps> = ({
   price,
@@ -47,36 +47,37 @@ const PropertyCoreInfoCard: React.FC<PropertyCoreInfoCardProps> = ({
   isVerified,
   builtUpArea,
   carpetArea,
+  superBuiltUpArea,
   furnishing,
   ageOfProperty,
   facing,
   bhk,
 }) => {
-  const area = builtUpArea ?? carpetArea;
-  const headline = title || (bhk ? `${bhk} BHK` : 'Property');
+  const area = builtUpArea ?? superBuiltUpArea ?? carpetArea;
+  const headline = title?.trim() || (bhk ? `${bhk} BHK` : 'Property');
 
   return (
-    <View className="rounded-2xl border border-outline-light/80 bg-surface-card p-8 shadow-xl shadow-primary/5">
-      <View className="mb-6 flex-row items-start justify-between gap-3">
-        <View className="min-w-0 flex-1 pr-2">
-          <Text className="text-3xl font-extrabold tracking-tight text-primary">{formatInrPrice(price)}</Text>
-          <Text className="mt-1 text-2xl font-bold text-primary">{headline}</Text>
-          <View className="mt-2 flex-row items-center gap-1">
-            <Icon name="map-marker" size={18} color="#008080" />
-            <Text className="text-sm text-slate-muted" numberOfLines={2}>
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.price}>{formatInrPrice(price)}</Text>
+          <Text style={styles.title}>{headline}</Text>
+          <View style={styles.locRow}>
+            <Icon name="map-marker" size={18} color={TEAL} />
+            <Text style={styles.locText} numberOfLines={2}>
               {[locality, city].filter(Boolean).join(', ')}
             </Text>
           </View>
         </View>
         {isVerified ? (
-          <View className="flex-row items-center gap-1 rounded-full border border-brand-teal/20 bg-brand-teal/10 px-3 py-1.5">
-            <Icon name="check-decagram" size={14} color="#008080" />
-            <Text className="text-[10px] font-black uppercase tracking-widest text-brand-teal">Verified</Text>
+          <View style={styles.verifiedPill}>
+            <Icon name="check-decagram" size={14} color={TEAL} />
+            <Text style={styles.verifiedText}>Verified</Text>
           </View>
         ) : null}
       </View>
 
-      <View className="flex-row flex-wrap justify-between gap-3">
+      <View style={styles.grid}>
         <StatCell label="Area" value={formatSqFt(area)} />
         <StatCell label="Furnishing" value={formatFurnishing(furnishing)} />
         <StatCell label="Property Age" value={formatPropertyAge(ageOfProperty)} />
@@ -85,5 +86,107 @@ const PropertyCoreInfoCard: React.FC<PropertyCoreInfoCardProps> = ({
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 32,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
+    shadowColor: PRIMARY,
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 24,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
+  },
+  price: {
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    color: PRIMARY,
+  },
+  title: {
+    marginTop: 4,
+    fontSize: 22,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
+  locRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  locText: {
+    flex: 1,
+    fontSize: 14,
+    color: MUTED,
+  },
+  verifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0, 128, 128, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 128, 128, 0.2)',
+  },
+  verifiedText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 2,
+    color: TEAL,
+    textTransform: 'uppercase',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+    columnGap: 16,
+  },
+  statCell: {
+    width: '47%',
+    minHeight: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: SURFACE_LOW,
+    borderWidth: 1,
+    borderColor: OUTLINE,
+  },
+  statLabel: {
+    marginBottom: 4,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: MUTED,
+    textAlign: 'center',
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PRIMARY,
+    textAlign: 'center',
+  },
+});
 
 export default PropertyCoreInfoCard;

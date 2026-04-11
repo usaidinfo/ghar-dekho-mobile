@@ -31,7 +31,7 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
 export function homeCategoryToApiFilters(
   category: PropertyCategory,
 ): Record<string, string | undefined> {
-  switch (category) {
+  switch (category) { 
     case 'Buy':
       return { listingType: 'BUY' };
     case 'Rent':

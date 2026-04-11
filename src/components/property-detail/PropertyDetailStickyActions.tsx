@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
+const PRIMARY = '#122A47';
 
 interface PropertyDetailStickyActionsProps {
   bottomInset: number;
@@ -14,26 +16,103 @@ const PropertyDetailStickyActions: React.FC<PropertyDetailStickyActionsProps> = 
   onSchedule,
 }) => (
   <View
-    className="absolute bottom-0 left-0 right-0 z-50 border-t border-outline-light/30 bg-surface-page/95 px-6 pt-5"
-    style={{ paddingBottom: Math.max(bottomInset, 12) + 8 }}
+    style={[
+      styles.bar,
+      {
+        paddingBottom: Math.max(bottomInset, 12) + 12,
+        ...Platform.select({
+          ios: {
+            shadowColor: '#000',
+            shadowOpacity: 0.08,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: -4 },
+          },
+          android: { elevation: 16 },
+        }),
+      },
+    ]}
   >
-    <View className="flex-row gap-4">
+    <View style={styles.row}>
       <Pressable
         onPress={onChat}
-        className="h-16 flex-1 flex-row items-center justify-center gap-2 rounded-full border-2 border-primary bg-transparent active:opacity-90"
+        style={({ pressed }) => [styles.btnOutline, pressed && styles.pressed]}
       >
-        <Icon name="chat-outline" size={20} color="#122A47" />
-        <Text className="text-[11px] font-black uppercase tracking-widest text-primary">In-App Chat</Text>
+        <Icon name="chat-outline" size={20} color={PRIMARY} />
+        <Text style={styles.btnOutlineText}>In-App Chat</Text>
       </Pressable>
       <Pressable
         onPress={onSchedule}
-        className="h-16 flex-[1.5] flex-row items-center justify-center gap-2 rounded-full bg-primary shadow-xl shadow-primary/30 active:opacity-90"
+        style={({ pressed }) => [styles.btnSolid, pressed && styles.pressed]}
       >
-        <Icon name="calendar-month" size={20} color="#ffffff" />
-        <Text className="text-[11px] font-black uppercase tracking-widest text-white">Schedule Visit</Text>
+        <Icon name="calendar-month" size={20} color="#FFFFFF" />
+        <Text style={styles.btnSolidText}>Schedule Visit</Text>
       </Pressable>
     </View>
   </View>
 );
+
+const styles = StyleSheet.create({
+  bar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(226, 232, 240, 0.6)',
+    backgroundColor: 'rgba(248, 249, 250, 0.97)',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  btnOutline: {
+    flex: 1,
+    height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: PRIMARY,
+    backgroundColor: 'transparent',
+  },
+  btnSolid: {
+    flex: 1.5,
+    height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 999,
+    backgroundColor: PRIMARY,
+    shadowColor: PRIMARY,
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  btnOutlineText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: PRIMARY,
+  },
+  btnSolidText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: '#FFFFFF',
+  },
+  pressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
+  },
+});
 
 export default PropertyDetailStickyActions;

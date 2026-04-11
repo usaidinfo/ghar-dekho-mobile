@@ -6,6 +6,7 @@ import {
   Text,
   Pressable,
   Linking,
+  StyleSheet,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -61,7 +62,7 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     void load();
   }, [load]);
 
-  const footerPad = Math.max(insets.bottom, 12) + 88;
+  const footerPad = Math.max(insets.bottom, 16) + 96;
 
   const tour360 = useMemo(
     () =>
@@ -78,12 +79,9 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     return vt?.tourUrl ?? null;
   }, [property]);
 
-  const show360Pill = Boolean(tour360?.tourUrl);
-  const showVideoPill = Boolean(videoTourUrl);
-
   const openTour = (tour: VirtualTourItem | undefined) => {
     if (!tour?.tourUrl) {
-      Toast.show({ type: 'info', text1: 'No tour link available' });
+      Toast.show({ type: 'info', text1: '360° tour link not added for this listing yet' });
       return;
     }
     Linking.openURL(tour.tourUrl).catch(() =>
@@ -93,7 +91,7 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const openVideo = () => {
     if (!videoTourUrl) {
-      Toast.show({ type: 'info', text1: 'No video tour yet' });
+      Toast.show({ type: 'info', text1: 'Video tour not added for this listing yet' });
       return;
     }
     Linking.openURL(videoTourUrl).catch(() =>
@@ -115,19 +113,19 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (loading && !property) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-surface-page" edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
         <ActivityIndicator size="large" color="#122A47" />
-        <Text className="mt-4 text-slate-muted">Loading property…</Text>
+        <Text style={styles.loadingHint}>Loading property…</Text>
       </SafeAreaView>
     );
   }
 
   if (error && !property) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-surface-page px-8" edges={['top', 'bottom']}>
-        <Text className="mb-6 text-center text-base text-primary">{error}</Text>
-        <Pressable onPress={() => void load()} className="rounded-full bg-primary px-8 py-3">
-          <Text className="font-bold text-white">Retry</Text>
+      <SafeAreaView style={[styles.centered, styles.px8]} edges={['top', 'bottom']}>
+        <Text style={styles.errorTitle}>{error}</Text>
+        <Pressable onPress={() => void load()} style={styles.retryBtn}>
+          <Text style={styles.retryText}>Retry</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -138,72 +136,112 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const p = property;
 
   return (
-    <View className="flex-1 bg-surface-page">
-      <PropertyHeroGallery
-        images={p.images}
-        videos={p.videos}
-        virtualTours={p.virtualTours}
-        title={p.title}
-        topInset={insets.top}
-        onBack={() => navigation.goBack()}
-        on360={() => openTour(tour360)}
-        onVideoTour={openVideo}
-        show360Pill={show360Pill}
-        showVideoPill={showVideoPill}
-      />
-
+    <View style={styles.root}>
       <ScrollView
-        className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: footerPad }}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: footerPad }]}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
       >
-        <View className="-mt-10 z-10 px-6">
+        <PropertyHeroGallery
+          images={p.images}
+          title={p.title}
+          topInset={insets.top}
+          onBack={() => navigation.goBack()}
+          on360={() => openTour(tour360)}
+          onVideoTour={openVideo}
+        />
+
+        <View style={[styles.overlapMain, { marginTop: OVERLAP }]}>
           <PropertyCoreInfoCard
-            price={p.price}
+            price={Number(p.price)}
             title={p.title}
             locality={p.locality}
             city={p.city}
             isVerified={p.isVerified}
-            builtUpArea={p.builtUpArea ?? p.superBuiltUpArea}
-            carpetArea={p.carpetArea}
+            builtUpArea={p.builtUpArea != null ? Number(p.builtUpArea) : null}
+            carpetArea={p.carpetArea != null ? Number(p.carpetArea) : null}
+            superBuiltUpArea={p.superBuiltUpArea != null ? Number(p.superBuiltUpArea) : null}
             furnishing={p.furnishing}
-            ageOfProperty={p.ageOfProperty}
+            ageOfProperty={p.ageOfProperty != null ? Number(p.ageOfProperty) : null}
             facing={p.facing}
-            bhk={p.bhk}
+            bhk={p.bhk != null ? Number(p.bhk) : null}
           />
 
           <PropertyAiInsightsCard
             locality={p.locality}
             city={p.city}
             description={p.description}
-            price={p.price}
-            aiSuggestedPrice={p.aiSuggestedPrice}
-            safetyScore={p.safetyScore}
-            investmentScore={p.investmentScore}
-            rentalYield={p.rentalYield}
+            price={Number(p.price)}
+            aiSuggestedPrice={p.aiSuggestedPrice != null ? Number(p.aiSuggestedPrice) : null}
+            safetyScore={p.safetyScore != null ? Number(p.safetyScore) : null}
+            investmentScore={p.investmentScore != null ? Number(p.investmentScore) : null}
+            rentalYield={p.rentalYield != null ? Number(p.rentalYield) : null}
           />
 
           <PropertyAmenitiesSection amenities={p.amenities ?? []} />
 
           <PropertyLocationLegalSection
-            latitude={p.latitude}
-            longitude={p.longitude}
+            latitude={Number(p.latitude)}
+            longitude={Number(p.longitude)}
             isRERAApproved={p.isRERAApproved}
             reraNumber={p.reraNumber}
             nearbyEssentials={p.nearbyEssentials}
           />
 
-          <View className="h-6" />
+          <View style={{ height: 24 }} />
         </View>
       </ScrollView>
 
-      <PropertyDetailStickyActions
-        bottomInset={insets.bottom}
-        onChat={onChat}
-        onSchedule={onSchedule}
-      />
+      <PropertyDetailStickyActions bottomInset={insets.bottom} onChat={onChat} onSchedule={onSchedule} />
     </View>
   );
 };
+
+const OVERLAP = -40;
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  overlapMain: {
+    zIndex: 10,
+    paddingHorizontal: 24,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  loadingHint: {
+    marginTop: 16,
+    fontSize: 14,
+    color: '#4A5568',
+  },
+  px8: {
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    marginBottom: 24,
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#122A47',
+  },
+  retryBtn: {
+    borderRadius: 999,
+    backgroundColor: '#122A47',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+});
 
 export default PropertyDetailScreen;
