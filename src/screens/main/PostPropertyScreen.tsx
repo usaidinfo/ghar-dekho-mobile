@@ -14,7 +14,6 @@ import { useForm } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CompositeNavigationProp } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 
@@ -193,25 +192,18 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                 )}
               </TouchableOpacity>
               <TouchableOpacity
-                activeOpacity={0.92}
+                activeOpacity={0.88}
                 onPress={onSubmit}
-                style={styles.primaryBtnWrap}
+                style={styles.primaryBtn}
                 disabled={submitting}
               >
-                <LinearGradient
-                  colors={['#122A47', '#1B3E68']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.gradientBtn}
-                >
-                  {busyPublish ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text className="text-center text-xs font-black uppercase tracking-widest text-on-primary">
-                      {primaryLabel}
-                    </Text>
-                  )}
-                </LinearGradient>
+                {busyPublish ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text className="text-center text-xs font-black uppercase tracking-widest text-on-primary">
+                    {primaryLabel}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -292,28 +284,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryBtnWrap: {
-    flex: 2,
+  primaryBtn: {
+    flex: 1,
     minWidth: 0,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  gradientBtn: {
     minHeight: 52,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
     borderRadius: 999,
+    backgroundColor: '#122A47',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#122A47',
-        shadowOpacity: 0.22,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-      },
-      android: { elevation: 6 },
-    }),
   },
 });
 
