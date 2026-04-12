@@ -6,6 +6,7 @@ import { signedInTextStyles } from './signedInTextStyles';
 export interface ProfileSettingsSectionProps {
   onEditProfile: () => void;
   onMyActivity: () => void;
+  onMessages?: () => void;
   onNotifications: () => void;
   onHelp: () => void;
   showNotificationDot?: boolean;
@@ -40,6 +41,7 @@ const SettingsRow: React.FC<RowProps> = ({ icon, label, onPress, showDot }) => (
 const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
   onEditProfile,
   onMyActivity,
+  onMessages,
   onNotifications,
   onHelp,
   showNotificationDot = true,
@@ -50,6 +52,7 @@ const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
     </Text>
     <View>
       <SettingsRow icon="account-edit-outline" label="Edit profile" onPress={onEditProfile} />
+      {onMessages ? <SettingsRow icon="message-text-outline" label="Messages" onPress={onMessages} /> : null}
       <SettingsRow icon="history" label="My activity" onPress={onMyActivity} />
       <SettingsRow
         icon="bell-ring-outline"

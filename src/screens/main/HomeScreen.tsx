@@ -8,7 +8,6 @@ import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,6 +19,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import HomeHeader from '../../components/home/HomeHeader';
 import CategoryChips from '../../components/home/CategoryChips';
 import FeaturePoster from '../../components/home/FeaturePoster';
 import ProjectCarousel from '../../components/home/ProjectCarousel';
@@ -31,18 +31,6 @@ import type { PropertyCategory, Project, NearbyProperty, TopListing } from '../.
 import type { MainStackParamList } from '../../navigation/types';
 
 type HomeNavProp = NativeStackNavigationProp<MainStackParamList>;
-
-const HomeHeader: React.FC<{ onMenuPress?: () => void }> = ({ onMenuPress }) => (
-  <View style={styles.header}>
-    <View style={styles.logoRow}>
-      <Icon name="home-city" size={24} color="#122A47" />
-      <Text style={styles.logoText}>Ghar Dekho India</Text>
-    </View>
-    <TouchableOpacity onPress={onMenuPress} activeOpacity={0.7} style={styles.menuBtn}>
-      <Icon name="menu" size={24} color="#122A47" />
-    </TouchableOpacity>
-  </View>
-);
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeNavProp>();
@@ -89,11 +77,18 @@ const HomeScreen: React.FC = () => {
     [navigation, selectedCategory],
   );
 
+  const onSubmitHeaderSearch = useCallback(
+    (query: string) => {
+      navigation.navigate('SearchResults', { query, category: selectedCategory });
+    },
+    [navigation, selectedCategory],
+  );
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#faf9fc" />
 
-      <HomeHeader />
+      <HomeHeader onSubmitSearch={onSubmitHeaderSearch} />
 
       {loading && !refreshing ? (
         <View style={styles.loadingBox}>
@@ -158,28 +153,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#faf9fc',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    height: 64,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#122A47',
-    letterSpacing: -0.5,
-  },
-  menuBtn: {
-    padding: 6,
-    borderRadius: 999,
   },
   loadingBox: {
     flex: 1,

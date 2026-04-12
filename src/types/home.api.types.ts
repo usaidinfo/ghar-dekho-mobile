@@ -49,6 +49,21 @@ export interface PropertyListItem {
   owner: PropertyListOwner;
 }
 
+/** GET /api/properties/my-listings — extends list row with owner metrics */
+export interface MyListingAnalyticsDay {
+  date: string;
+  views: number;
+  leads: number;
+  messages: number;
+}
+
+export interface MyListingItem extends PropertyListItem {
+  leadCount: number;
+  shareCount: number;
+  expiresAt: string | null;
+  analytics?: MyListingAnalyticsDay[];
+}
+
 export interface HotDealApi {
   id: string;
   propertyId: string;

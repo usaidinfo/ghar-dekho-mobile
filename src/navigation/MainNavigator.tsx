@@ -1,7 +1,3 @@
-/**
- * Main stack: bottom tabs as default (browse without login).
- * Login / Signup are stack screens so Profile and other entry points can open them.
- */
 
 import React from 'react';
 import { View, Text } from 'react-native';
@@ -10,6 +6,11 @@ import BottomTabNavigator from './BottomTabNavigator';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
 import PropertyDetailScreen from '../screens/main/PropertyDetailScreen';
+import SearchResultsScreen from '../screens/main/SearchResultsScreen';
+import MyListingsScreen from '../screens/main/MyListingsScreen';
+import WishlistScreen from '../screens/main/WishlistScreen';
+import ChatInboxScreen from '../screens/main/ChatInboxScreen';
+import ChatThreadScreen from '../screens/main/ChatThreadScreen';
 import type { MainStackParamList } from './types';
 
 const Placeholder: React.FC<{ label: string }> = ({ label }) => (
@@ -20,9 +21,7 @@ const Placeholder: React.FC<{ label: string }> = ({ label }) => (
 
 const ProjectDetailScreen = () => <Placeholder label="Project Detail" />;
 const AdvisorAIScreen = () => <Placeholder label="Ghar Advisor AI" />;
-const SearchResultsScreen = () => <Placeholder label="Search Results" />;
 const NeighborhoodDetailScreen = () => <Placeholder label="Neighborhood Detail" />;
-const ChatScreen = () => <Placeholder label="Chat" />;
 const NotificationsScreen = () => <Placeholder label="Notifications" />;
 const EditProfileScreen = () => <Placeholder label="Edit Profile" />;
 
@@ -40,8 +39,11 @@ const MainNavigator: React.FC = () => (
     <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
     <Stack.Screen name="AdvisorAI" component={AdvisorAIScreen} />
     <Stack.Screen name="SearchResults" component={SearchResultsScreen} />
+    <Stack.Screen name="MyListings" component={MyListingsScreen} />
+    <Stack.Screen name="Wishlist" component={WishlistScreen} />
     <Stack.Screen name="NeighborhoodDetail" component={NeighborhoodDetailScreen} />
-    <Stack.Screen name="Chat" component={ChatScreen} />
+    <Stack.Screen name="ChatInbox" component={ChatInboxScreen} />
+    <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
     <Stack.Screen name="EditProfile" component={EditProfileScreen} />
   </Stack.Navigator>

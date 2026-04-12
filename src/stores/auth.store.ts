@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { clearSessionTokens, setSessionTokens } from '../api/session';
+import { disconnectChatSocket } from '../api/chatSocket';
 import { authService } from '../services';
 import type { AuthUser, ProfileType, RegisterPayload } from '../types/auth.types';
 
@@ -33,6 +34,7 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken: access, refreshToken: refresh });
       },
       clearAuth: () => {
+        disconnectChatSocket();
         clearSessionTokens();
         set({ user: null, accessToken: null, refreshToken: null });
       },

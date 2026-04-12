@@ -18,6 +18,8 @@ import PropertyAmenitiesSection from '../../components/property-detail/PropertyA
 import PropertyLocationLegalSection from '../../components/property-detail/PropertyLocationLegalSection';
 import PropertyDetailStickyActions from '../../components/property-detail/PropertyDetailStickyActions';
 import { fetchPropertyById } from '../../services/property.service';
+import { createOrGetSession } from '../../services/chat.service';
+import { useAuthStore } from '../../stores/auth.store';
 import type { MainStackParamList } from '../../navigation/types';
 import type { PropertyDetail, VirtualTourItem } from '../../types/property-detail.types';
 
@@ -38,6 +40,7 @@ function normalizeDetail(raw: unknown): PropertyDetail {
 const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { propertyId } = route.params;
+  const myId = useAuthStore(s => s.user?.id);
 
   const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,12 +102,43 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     );
   };
 
-  const onChat = () => {
+  const onChat = async () => {
     if (!property?.owner?.id) {
       Toast.show({ type: 'info', text1: 'Owner information unavailable' });
       return;
     }
-    navigation.navigate('Chat', { userId: property.owner.id, propertyId: property.id });
+    if (!myId) {
+      Toast.show({ type: 'info', text1: 'Please sign in to chat' });
+      navigation.navigate('Login');
+      return;
+    }
+    try {
+      const res = await createOrGetSession({
+        otherUserId: property.owner.id,
+        propertyId: property.id,
+      });
+      if (!res.success || !res.data) {
+        Toast.show({ type: 'error', text1: 'Could not start chat' });
+        return;
+      }
+      const s = res.data;
+      const other = s.user1Id === myId ? s.user2 : s.user1;
+      const peerName = [other.profile?.firstName, other.profile?.lastName].filter(Boolean).join(' ').trim();
+      const img0 = property.images?.[0];
+      const thumb = img0?.thumbnailUrl || img0?.imageUrl;
+      navigation.navigate('ChatThread', {
+        sessionId: s.id,
+        peerName: peerName || 'Chat',
+        peerImage: other.profile?.profileImage,
+        propertyId: property.id,
+        propertyTitle: property.title,
+        propertyThumb: thumb ?? null,
+        propertyPrice: Number(property.price),
+        listingType: property.listingType,
+      });
+    } catch (e) {
+      Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Could not start chat' });
+    }
   };
 
   const onSchedule = () => {

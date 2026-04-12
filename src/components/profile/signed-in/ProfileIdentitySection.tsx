@@ -52,7 +52,7 @@ const ProfileIdentitySection: React.FC<ProfileIdentitySectionProps> = ({
       ) : null}
 
       <View
-        className={`flex-row flex-wrap items-center justify-center gap-3 ${subtitle ? 'mt-5' : 'mt-4'}`}
+        className={`flex-row flex-wrap items-center justify-center gap-3 ${subtitle ? 'my-2' : 'my-1'}`}
       >
         <View className="flex-row items-center gap-1.5 rounded-full border border-outline/40 bg-surface-low px-3 py-1.5">
           <Icon

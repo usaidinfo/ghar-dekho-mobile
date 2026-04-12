@@ -4,6 +4,7 @@ import type { PropertyDetail } from '../types/property-detail.types';
 import type {
   FeaturedPropertiesPayload,
   NearbyPropertyApiItem,
+  MyListingItem,
   PropertyListItem,
 } from '../types/home.api.types';
 
@@ -59,6 +60,19 @@ export async function fetchNearbyProperties(
     return body.data;
   }
   return [];
+}
+
+export type MyListingsParams = {
+  page?: number;
+  limit?: number;
+  status?: string;
+};
+
+export async function fetchMyListings(params?: MyListingsParams) {
+  const { data } = await httpClient.get<ApiPaginated<MyListingItem>>('/api/properties/my-listings', {
+    params,
+  });
+  return data;
 }
 
 export async function fetchPropertyById(id: string): Promise<PropertyDetail> {

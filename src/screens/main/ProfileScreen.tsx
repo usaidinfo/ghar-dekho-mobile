@@ -115,8 +115,8 @@ const ProfileScreen: React.FC = () => {
         <ProfileStatsSection
           wishlistCount={0}
           listingsCount={0}
-          onViewWishlist={() => navigation.navigate('Home')}
-          onManageListings={() => navigation.navigate('Post')}
+          onViewWishlist={() => navigation.navigate('Wishlist')}
+          onManageListings={() => navigation.navigate('MyListings')}
         />
 
         {isAgentProfile(user.profileType) ? (
@@ -130,6 +130,7 @@ const ProfileScreen: React.FC = () => {
 
         <ProfileSettingsSection
           onEditProfile={() => navigation.navigate('EditProfile')}
+          onMessages={() => navigation.navigate('ChatInbox')}
           onMyActivity={() => navigation.navigate('History')}
           onNotifications={() => navigation.navigate('Notifications')}
           onHelp={() => {
