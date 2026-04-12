@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, TouchableOpacityProps, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, Text, TouchableOpacityProps, ActivityIndicator, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 export interface ButtonProps extends TouchableOpacityProps {
@@ -72,7 +72,14 @@ export const Button: React.FC<ButtonProps> = ({
         <ActivityIndicator color={variant === 'primary' ? '#fff' : '#122A47'} />
       ) : (
         <>
-          {icon && <Icon name={icon} size={20} color={variant === 'primary' ? '#fff' : '#122A47'} className="mr-2" />}
+          {icon ? (
+            <Icon
+              name={icon}
+              size={20}
+              color={variant === 'primary' ? '#fff' : '#122A47'}
+              style={styles.iconSpacer}
+            />
+          ) : null}
           <Text className={`${getTextColor()} text-lg font-bold ${icon ? 'ml-2' : ''}`}>
             {title}
           </Text>
@@ -81,3 +88,7 @@ export const Button: React.FC<ButtonProps> = ({
     </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create({
+  iconSpacer: { marginRight: 8 },
+});

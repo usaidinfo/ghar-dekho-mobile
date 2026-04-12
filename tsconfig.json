@@ -1,7 +1,8 @@
 {
   "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
-    "types": ["nativewind/types"]
+    "types": ["nativewind/types"],
+    "resolveJsonModule": true
   },
   "include": [
     "**/*.ts",
