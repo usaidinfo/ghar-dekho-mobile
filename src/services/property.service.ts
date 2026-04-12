@@ -1,11 +1,15 @@
+import axios from 'axios';
 import { httpClient } from '../api/httpClient';
 import type { ApiPaginated, ApiSuccess } from '../types/api.types';
+import type { CreatePropertyPayload, CreatePropertyResponse } from '../types/create-property.api.types';
 import type { PropertyDetail } from '../types/property-detail.types';
 import type {
   FeaturedPropertiesPayload,
   NearbyPropertyApiItem,
   PropertyListItem,
 } from '../types/home.api.types';
+
+import { getApiErrorMessage } from './auth.service';
 
 /** Query params aligned with GET /api/properties and /api/properties/search */
 export type PropertyListParams = Record<string, string | number | undefined>;
@@ -67,4 +71,42 @@ export async function fetchPropertyById(id: string): Promise<PropertyDetail> {
     throw new Error('Failed to load property');
   }
   return data.data;
+}
+
+function readNewPropertyId(body: CreatePropertyResponse | PropertyListItem): string {
+  const row = body as Record<string, unknown>;
+  if (typeof row.id === 'string') {
+    return row.id;
+  }
+  const prop = row.property as { id?: string } | undefined;
+  if (prop && typeof prop.id === 'string') {
+    return prop.id;
+  }
+  const nested = row.data as { id?: string } | undefined;
+  if (nested && typeof nested.id === 'string') {
+    return nested.id;
+  }
+  throw new Error('Server did not return a property id');
+}
+
+/**
+ * Create or save a listing (JSON). Uses `status: DRAFT` vs `ACTIVE` for draft vs publish.
+ * Backend route: POST /api/properties
+ */
+export async function createProperty(payload: CreatePropertyPayload): Promise<string> {
+  try {
+    const { data } = await httpClient.post<ApiSuccess<CreatePropertyResponse | PropertyListItem>>(
+      '/api/properties',
+      payload,
+    );
+    if (!data.success || !data.data) {
+      throw new Error((data as { message?: string }).message || 'Could not create property');
+    }
+    return readNewPropertyId(data.data);
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      throw new Error(getApiErrorMessage(e));
+    }
+    throw e instanceof Error ? e : new Error('Could not create property');
+  }
 }
