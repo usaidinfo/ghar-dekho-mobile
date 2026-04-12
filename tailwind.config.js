@@ -44,6 +44,15 @@ module.exports = {
         'surface-muted': '#F1F3F5',
         'slate-muted': '#4A5568',
         'outline-light': '#E2E8F0',
+        /** List-property / Stitch form (teal + neutrals) — does not replace app `secondary` (gold) */
+        'surface-container-high': '#E9ECEF',
+        'surface-container-highest': '#DEE2E6',
+        'on-surface-muted': '#495057',
+        'teal-surface': '#E0F2F1',
+        'on-teal-surface': '#004D40',
+        'gold-wash': '#FFF8E1',
+        'on-gold-wash': '#856404',
+        'navy-mid': '#1B3E68',
       },
       animation: {
         pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',

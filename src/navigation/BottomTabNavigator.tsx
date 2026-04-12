@@ -12,6 +12,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import HomeScreen from '../screens/main/HomeScreen';
+import PostPropertyScreen from '../screens/main/PostPropertyScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import type { BottomTabParamList } from './types';
 
@@ -27,7 +28,6 @@ const Placeholder: React.FC<{ label: string }> = ({ label }) => (
 );
 
 const MembershipScreen = () => <Placeholder label="Membership" />;
-const PostScreen = () => <Placeholder label="Post Property" />;
 const HistoryScreen = () => <Placeholder label="History" />;
 
 interface TabItem {
@@ -136,7 +136,7 @@ const BottomTabNavigator: React.FC = () => (
   <Tab.Navigator tabBar={props => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
     <Tab.Screen name="Home" component={HomeScreen} />
     <Tab.Screen name="Membership" component={MembershipScreen} />
-    <Tab.Screen name="Post" component={PostScreen} />
+    <Tab.Screen name="Post" component={PostPropertyScreen} />
     <Tab.Screen name="History" component={HistoryScreen} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>

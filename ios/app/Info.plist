@@ -32,7 +32,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>$(PRODUCT_NAME) needs camera access</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>$(PRODUCT_NAME) needs your location to provide location-based services</string>
+	<string>$(PRODUCT_NAME) uses your location to fill city and address when you list a property.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>$(PRODUCT_NAME) needs microphone access for videos</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
