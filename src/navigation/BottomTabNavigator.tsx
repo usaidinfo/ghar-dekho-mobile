@@ -1,16 +1,11 @@
 /**
  * @file BottomTabNavigator.tsx
- * @description Custom bottom tab bar for GharDekho.
- *
- * Tab structure: Home | Membership | [Post FAB] | History | Profile
- *
- * Active Home tab: filled navy circle (pill style) with white icon, no label.
- * Other tabs: outlined icon + uppercase label.
- * Post: elevated gold FAB with "POST" label below.
+ * @description Compact bottom tabs — all items sit inside the bar; center Post (OLX-style)
+ * floats up with ~half the disc above the bar. Ring uses brand secondary only (#D1A14E).
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -20,7 +15,10 @@ import HomeScreen from '../screens/main/HomeScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import type { BottomTabParamList } from './types';
 
-// ─── Placeholder Screens ──────────────────────────────────────────────────────
+const NAVY = '#122A47';
+/** Tailwind `secondary` — sole ring / accent for Post FAB */
+const SECONDARY = '#D1A14E';
+const MUTED = 'rgba(119,119,121,0.72)';
 
 const Placeholder: React.FC<{ label: string }> = ({ label }) => (
   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#faf9fc' }}>
@@ -32,104 +30,110 @@ const MembershipScreen = () => <Placeholder label="Membership" />;
 const PostScreen = () => <Placeholder label="Post Property" />;
 const HistoryScreen = () => <Placeholder label="History" />;
 
-// ─── Tab Config ───────────────────────────────────────────────────────────────
-
 interface TabItem {
   name: keyof BottomTabParamList;
-  icon: string;           // inactive icon name (MaterialCommunityIcons)
-  activeIcon: string;     // active icon name
+  icon: string;
+  activeIcon: string;
   label: string;
   isCenter?: boolean;
-  isHome?: boolean;
 }
 
 const TAB_ITEMS: TabItem[] = [
-  { name: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'HOME', isHome: true },
+  { name: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'HOME' },
   { name: 'Membership', icon: 'crown-outline', activeIcon: 'crown', label: 'MEMBERSHIP' },
   { name: 'Post', icon: 'plus-circle-outline', activeIcon: 'plus-circle', label: 'POST', isCenter: true },
   { name: 'History', icon: 'history', activeIcon: 'history', label: 'HISTORY' },
   { name: 'Profile', icon: 'account-outline', activeIcon: 'account', label: 'PROFILE' },
 ];
 
-// ─── Custom Tab Bar ───────────────────────────────────────────────────────────
+const ACTIVE_SIZE = 44;
+const ICON_INACTIVE = 22;
+const ICON_ACTIVE = 20;
+
+/** White disc + secondary ring; total visual size for float math */
+const FAB_SIZE = 50;
+const RING_WIDTH = 4;
+
+/**
+ * Negative shift so ~half the FAB sits above the tab bar top (OLX-style).
+ * Tune with FAB_SIZE if you change diameter.
+ */
+const FAB_FLOAT_Y = -(FAB_SIZE / 2 - 8);
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const insets = useSafeAreaInsets();
-  const bottomPad = Math.max(insets.bottom, 14);
+  const bottomPad = Math.max(insets.bottom, 4);
 
   return (
-    <View style={[styles.tabBar, { paddingBottom: bottomPad }]}>
-      {TAB_ITEMS.map((tab, index) => {
-        const isFocused = state.index === index;
+    <View style={styles.tabBarRoot}>
+      <View style={[styles.tabBar, { paddingBottom: bottomPad }]}>
+        {TAB_ITEMS.map((tab, index) => {
+          const isFocused = state.index === index;
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: state.routes[index]?.key ?? '',
-            canPreventDefault: true,
-          });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(tab.name);
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: state.routes[index]?.key ?? '',
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(tab.name);
+            }
+          };
+
+          if (tab.isCenter) {
+            return (
+              <View key={tab.name} style={styles.centerWrap} pointerEvents="box-none">
+                <TouchableOpacity
+                  onPress={onPress}
+                  activeOpacity={0.88}
+                  style={[styles.fabHit, { transform: [{ translateY: FAB_FLOAT_Y }] }]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isFocused }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <View style={[styles.fabRing, isFocused && styles.fabRingFocused]}>
+                    <View style={styles.fabCore}>
+                      <Icon name="plus" size={28} color={NAVY} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+                <Text style={[styles.fabLabel, isFocused && styles.fabLabelActive]}>{tab.label}</Text>
+              </View>
+            );
           }
-        };
 
-        // ── Center FAB (Post) ──
-        if (tab.isCenter) {
           return (
-            <View key={tab.name} style={styles.centerWrap}>
-              <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.85}>
-                <Icon name="plus" size={28} color="#ffffff" />
-              </TouchableOpacity>
-              <Text style={styles.fabLabel}>{tab.label}</Text>
-            </View>
-          );
-        }
-
-        // ── Home Tab (filled circle when active, icon+label when inactive) ──
-        if (tab.isHome) {
-          return (
-            <TouchableOpacity key={tab.name} style={styles.tabItem} onPress={onPress} activeOpacity={0.7}>
+            <TouchableOpacity
+              key={tab.name}
+              style={styles.tabItem}
+              onPress={onPress}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isFocused }}
+            >
               {isFocused ? (
-                <View style={styles.homeActivePill}>
-                  <Icon name={tab.activeIcon} size={22} color="#ffffff" />
+                <View style={styles.activeCircle}>
+                  <Icon name={tab.activeIcon} size={ICON_ACTIVE} color="#ffffff" />
                 </View>
               ) : (
                 <>
-                  <Icon name={tab.icon} size={22} color="rgba(119,119,121,0.7)" />
+                  <Icon name={tab.icon} size={ICON_INACTIVE} color={MUTED} />
                   <Text style={styles.tabLabel}>{tab.label}</Text>
                 </>
               )}
             </TouchableOpacity>
           );
-        }
-
-        // ── Regular Tab ──
-        return (
-          <TouchableOpacity key={tab.name} style={styles.tabItem} onPress={onPress} activeOpacity={0.7}>
-            <Icon
-              name={isFocused ? tab.activeIcon : tab.icon}
-              size={22}
-              color={isFocused ? '#122A47' : 'rgba(119,119,121,0.7)'}
-            />
-            <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+        })}
+      </View>
     </View>
   );
 };
 
-// ─── Navigator ────────────────────────────────────────────────────────────────
-
 const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 const BottomTabNavigator: React.FC = () => (
-  <Tab.Navigator
-    tabBar={props => <CustomTabBar {...props} />}
-    screenOptions={{ headerShown: false }}
-  >
+  <Tab.Navigator tabBar={props => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
     <Tab.Screen name="Home" component={HomeScreen} />
     <Tab.Screen name="Membership" component={MembershipScreen} />
     <Tab.Screen name="Post" component={PostScreen} />
@@ -138,76 +142,108 @@ const BottomTabNavigator: React.FC = () => (
   </Tab.Navigator>
 );
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
+  tabBarRoot: {
+    overflow: 'visible',
+    zIndex: 100,
+    elevation: 20,
+  },
   tabBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: 'rgba(250,249,252,0.92)',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(250,249,252,0.98)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#C4C6CE',
-    paddingTop: 12,
-    paddingHorizontal: 6,
-    shadowColor: '#1b1c1e',
-    shadowOpacity: 0.07,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 18,
+    paddingTop: 2,
+    paddingHorizontal: 2,
+    overflow: 'visible',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1b1c1e',
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -2 },
+      },
+      android: { elevation: 8 },
+    }),
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'flex-end',
     paddingBottom: 2,
+    paddingTop: 2,
+    minHeight: 40,
+    gap: 2,
+  },
+  activeCircle: {
+    width: ACTIVE_SIZE,
+    height: ACTIVE_SIZE,
+    borderRadius: 999,
+    backgroundColor: NAVY,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 1,
   },
   tabLabel: {
     fontSize: 8,
     fontWeight: '700',
-    color: 'rgba(119,119,121,0.7)',
-    letterSpacing: 0.8,
+    color: MUTED,
+    letterSpacing: 0.5,
   },
-  tabLabelActive: {
-    color: '#122A47',
-  },
-  // Home active: filled navy pill
-  homeActivePill: {
-    width: 46,
-    height: 46,
-    borderRadius: 999,
-    backgroundColor: '#122A47',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  // Center FAB: gold, elevated
   centerWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    paddingBottom: 0,
+    overflow: 'visible',
   },
-  fab: {
-    width: 60,
-    height: 60,
+  fabHit: {
+    marginBottom: 2,
     borderRadius: 999,
-    backgroundColor: '#D1A14E',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: { elevation: 14 },
+    }),
+  },
+  /** Ring = secondary only */
+  fabRing: {
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    backgroundColor: SECONDARY,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ translateY: -16 }],
-    shadowColor: '#D1A14E',
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 14,
+  },
+  fabRingFocused: {
+    transform: [{ scale: 1.04 }],
+  },
+  fabCore: {
+    width: FAB_SIZE - RING_WIDTH * 2,
+    height: FAB_SIZE - RING_WIDTH * 2,
+    borderRadius: (FAB_SIZE - RING_WIDTH * 2) / 2,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fabLabel: {
     fontSize: 8,
     fontWeight: '700',
-    color: '#122A47',
-    letterSpacing: 0.8,
-    marginTop: -10,
+    color: MUTED,
+    letterSpacing: 0.5,
+    marginTop: 0,
+  },
+  fabLabelActive: {
+    color: NAVY,
+    fontWeight: '800',
   },
 });
 
