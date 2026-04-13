@@ -29,9 +29,8 @@ import type { MyListingItem, MyListingAnalyticsDay } from '../../types/home.api.
 import { fetchMyListings } from '../../services/property.service';
 import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { useAuthStore } from '../../stores/auth.store';
+import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 
-const PLACEHOLDER =
-  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80';
 const NAVY = '#122A47';
 const PRIMARY_DEEP = '#00152e';
 const MUTED = '#777779';
@@ -111,7 +110,7 @@ function statusBadgeColors(status: string): { bg: string; fg: string } {
 
 function pickThumb(item: MyListingItem): string {
   const img = item.images?.[0];
-  return img?.thumbnailUrl || img?.imageUrl || PLACEHOLDER;
+  return img?.thumbnailUrl || img?.imageUrl || PROPERTY_PLACEHOLDER_IMAGE;
 }
 
 function analyticsBars(days: MyListingAnalyticsDay[] | undefined): number[] {
@@ -206,7 +205,7 @@ const MyListingsScreen: React.FC = () => {
   }, [loadPage, loading, loadingMore, meta?.hasNext, page]);
 
   const goPost = useCallback(() => {
-    navigation.navigate('Tabs', { screen: 'Post' });
+    navigation.navigate('PostProperty');
   }, [navigation]);
 
   const openProfileTab = useCallback(() => {

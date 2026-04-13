@@ -1,6 +1,8 @@
+import axios from 'axios';
 import { httpClient } from '../api/httpClient';
 import type { ApiPaginated, ApiSuccess } from '../types/api.types';
 import type { ChatMessage, ChatSessionRow } from '../types/chat.api.types';
+import { getApiErrorMessage } from './auth.service';
 
 export async function fetchChatSessions(params?: { page?: number; limit?: number }) {
   const { data } = await httpClient.get<ApiPaginated<ChatSessionRow>>('/api/chat/sessions', { params });
@@ -24,19 +26,33 @@ export async function sendChatMessageMultipart(
   sessionId: string,
   form: FormData,
 ): Promise<ApiSuccess<ChatMessage>> {
-  const { data } = await httpClient.post<ApiSuccess<ChatMessage>>(
-    `/api/chat/sessions/${sessionId}/messages`,
-    form,
-  );
-  return data;
+  try {
+    const { data } = await httpClient.post<ApiSuccess<ChatMessage>>(
+      `/api/chat/sessions/${sessionId}/messages`,
+      form,
+    );
+    return data;
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      throw new Error(getApiErrorMessage(e));
+    }
+    throw e instanceof Error ? e : new Error('Upload failed');
+  }
 }
 
 export async function sendChatMessageJson(sessionId: string, body: { content: string; messageType?: string }) {
-  const { data } = await httpClient.post<ApiSuccess<ChatMessage>>(
-    `/api/chat/sessions/${sessionId}/messages`,
-    body,
-  );
-  return data;
+  try {
+    const { data } = await httpClient.post<ApiSuccess<ChatMessage>>(
+      `/api/chat/sessions/${sessionId}/messages`,
+      body,
+    );
+    return data;
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      throw new Error(getApiErrorMessage(e));
+    }
+    throw e instanceof Error ? e : new Error('Send failed');
+  }
 }
 
 export async function archiveChatSession(sessionId: string) {

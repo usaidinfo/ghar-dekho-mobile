@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { formatInrPrice } from '../../utils/homePropertyMappers';
+import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 
 const PRIMARY = '#00152e';
 const MUTED = '#44474d';
@@ -27,7 +28,7 @@ const ChatPropertyContextBar: React.FC<ChatPropertyContextBarProps> = ({
     <View style={styles.left}>
       <Image
         source={{
-          uri: thumbnailUrl || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=200',
+          uri: thumbnailUrl || PROPERTY_PLACEHOLDER_IMAGE,
         }}
         style={styles.thumb}
       />

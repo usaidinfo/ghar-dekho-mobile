@@ -3,13 +3,12 @@ import type { ListPropertyFormValues } from '../types/list-property-form.types';
 
 function parseDigitsNumber(raw: string): number | null {
   const t = raw.trim();
-  if (!t) {
-    return null;
-  }
+  if (!t) return null;
   const n = Number(t.replace(/,/g, ''));
   return Number.isFinite(n) ? n : null;
 }
 
+/** Maps UI listing intent → Prisma `ListingType` (no COMMERCIAL — use category). */
 function listingIntentToApi(listingIntent: ListPropertyFormValues['listingIntent']): string {
   switch (listingIntent) {
     case 'Buy':
@@ -19,7 +18,7 @@ function listingIntentToApi(listingIntent: ListPropertyFormValues['listingIntent
     case 'PG':
       return 'PG';
     case 'Comm.':
-      return 'COMMERCIAL';
+      return 'BUY';
     default:
       return 'BUY';
   }
@@ -30,9 +29,7 @@ function propertyKindToApi(kind: ListPropertyFormValues['propertyKind']): string
 }
 
 function bhkToNumber(bhk: ListPropertyFormValues['bhk']): number | null {
-  if (bhk === '5+') {
-    return 5;
-  }
+  if (bhk === '5+') return 5;
   const n = Number(bhk);
   return Number.isFinite(n) ? n : null;
 }
@@ -61,25 +58,49 @@ function buildAddress(values: ListPropertyFormValues): string {
   return parts.join(', ');
 }
 
-function orderImagesByCover(uris: string[], coverIndex: number): string[] {
-  if (!uris.length) {
-    return [];
-  }
+function buildDescription(values: ListPropertyFormValues): string {
+  const loc = [values.locality, values.city].filter(Boolean).join(', ');
+  const bits = [
+    `${values.propertyKind} for ${values.listingIntent}${loc ? ` in ${loc}` : ''}.`,
+    values.builtUpSqFt.trim() ? `Approx. ${values.builtUpSqFt.trim()} sq.ft. built-up.` : null,
+    values.carpetSqFt.trim() ? `Carpet area ~${values.carpetSqFt.trim()} sq.ft.` : null,
+  ].filter(Boolean);
+  const text = bits.join(' ').trim();
+  return text || 'Property listing on GharDekho.';
+}
+
+function categoryFromForm(values: ListPropertyFormValues): string {
+  if (values.listingIntent === 'Comm.') return 'COMMERCIAL';
+  if (values.propertyKind === 'Plot') return 'PLOT';
+  if (values.listingIntent === 'PG') return 'PG';
+  return 'RESIDENTIAL';
+}
+
+export function orderImagesByCover(uris: string[], coverIndex: number): string[] {
+  if (!uris.length) return [];
   const safe = Math.min(Math.max(coverIndex, 0), uris.length - 1);
-  if (safe === 0) {
-    return [...uris];
-  }
+  if (safe === 0) return [...uris];
   const copy = [...uris];
   const [cover] = copy.splice(safe, 1);
-  if (cover) {
-    return [cover, ...copy];
-  }
+  if (cover) return [cover, ...copy];
   return copy;
 }
 
+/** Local device URIs only, cover first — for multipart upload after create. */
+export function orderPhotoUrisForUpload(uris: string[], coverIndex: number): string[] {
+  return orderImagesByCover(uris, coverIndex).filter(u => {
+    if (typeof u !== 'string' || !u) return false;
+    return (
+      u.startsWith('file://') ||
+      u.startsWith('content://') ||
+      u.startsWith('ph://') ||
+      u.startsWith('assets-library://')
+    );
+  });
+}
+
 /**
- * Maps mobile list form → POST /api/properties JSON.
- * Omits invalid price (0) when draft if you want — caller passes status.
+ * Maps mobile list form → POST /api/properties JSON (field names match `property.controller` + route validators).
  */
 export function mapListPropertyFormToCreatePayload(
   values: ListPropertyFormValues,
@@ -91,49 +112,43 @@ export function mapListPropertyFormToCreatePayload(
   const floor = parseDigitsNumber(values.floor);
   const totalFloors = parseDigitsNumber(values.totalFloors);
 
-  const imageUrls = orderImagesByCover(values.photoUris, values.coverIndex).filter(
-    u => typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://')),
-  );
-
   const latStr = values.latitude.trim();
   const lonStr = values.longitude.trim();
   const lat = latStr ? Number(latStr) : NaN;
   const lon = lonStr ? Number(lonStr) : NaN;
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lon);
 
-  const videoFile = values.videoTourUri.trim();
+  const address = buildAddress(values).trim() || `${values.locality}, ${values.city}`.trim();
 
   return {
     status,
     listingType: listingIntentToApi(values.listingIntent),
     propertyType: propertyKindToApi(values.propertyKind),
+    category: categoryFromForm(values),
     title: buildTitle(values),
-    description: undefined,
+    description: buildDescription(values),
     price,
     currency: 'INR',
     city: values.city.trim(),
     locality: values.locality.trim(),
-    state: values.state.trim() || undefined,
-    pincode: values.pincode.trim() || undefined,
-    address: buildAddress(values) || undefined,
+    state: values.state.trim(),
+    pincode: values.pincode.trim(),
+    address,
     ...(hasValidCoords ? { latitude: lat, longitude: lon } : {}),
     bhk: bhkToNumber(values.bhk),
     builtUpArea: builtUp,
     carpetArea: carpet,
-    floor,
+    floorNumber: floor,
     totalFloors,
     ageOfProperty: propertyAgeToYears(values.propertyAge),
-    isPriceNegotiable: values.priceNegotiable,
+    priceNegotiable: values.priceNegotiable,
     isRERAApproved: values.reraApproved,
     reraNumber: values.reraApproved && values.reraRegistrationNumber.trim()
       ? values.reraRegistrationNumber.trim()
       : null,
-    imageUrls: imageUrls.length ? imageUrls : undefined,
-    primaryImageIndex: imageUrls.length ? 0 : undefined,
+    hasNOC: values.nocFromSociety,
+    hasApprovedMaps: values.approvedMasterPlan,
+    isFeatured: values.featureListing,
     amenitySlugs: values.amenities.length ? [...values.amenities] : undefined,
-    requestFeatured: values.featureListing,
-    nocFromSociety: values.nocFromSociety,
-    approvedMasterPlan: values.approvedMasterPlan,
-    ...(videoFile ? { videoTourFileUri: videoFile } : {}),
   };
 }

@@ -4,8 +4,9 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, type ListRenderItem } from 'react-native';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, type ListRenderItem } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { Socket } from 'socket.io-client';
 import Toast from 'react-native-toast-message';
@@ -18,28 +19,40 @@ import { connectChatSocket, getChatSocket } from '../../api/chatSocket';
 import { getAccessToken } from '../../api/session';
 import { useAuthStore } from '../../stores/auth.store';
 import { formatDayLabel } from '../../utils/chatDisplay';
+import { normalizeChatImagePart } from '../../utils/chatImageUpload';
 
 import ChatThreadHeader from '../../components/chat/ChatThreadHeader';
 import ChatPropertyContextBar from '../../components/chat/ChatPropertyContextBar';
 import ChatMessageBubble from '../../components/chat/ChatMessageBubble';
 import ChatComposer from '../../components/chat/ChatComposer';
 import ChatDaySeparator from '../../components/chat/ChatDaySeparator';
+import ChatThreadSkeleton from '../../components/chat/ChatThreadSkeleton';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'ChatThread'>;
 
 type Row = { type: 'day'; label: string; id: string } | { type: 'msg'; msg: ChatMessage; id: string };
 
+/**
+ * Build rows for an inverted FlatList (index 0 = visual bottom = newest).
+ * For each calendar day: list that day's messages newest-first, then the day pill
+ * so the label sits above that day's block (chronological "start" of the day).
+ */
 function rowsForInverted(messages: ChatMessage[]): Row[] {
   const sorted = [...messages].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   const out: Row[] = [];
-  let lastDay: string | null = null;
-  for (const m of sorted) {
-    const d = formatDayLabel(m.createdAt);
-    if (d !== lastDay) {
-      out.push({ type: 'day', label: d, id: `day-${m.id}` });
-      lastDay = d;
+  let i = 0;
+  while (i < sorted.length) {
+    const dayLabel = formatDayLabel(sorted[i].createdAt);
+    const bucket: ChatMessage[] = [];
+    while (i < sorted.length && formatDayLabel(sorted[i].createdAt) === dayLabel) {
+      bucket.push(sorted[i]);
+      i += 1;
     }
-    out.push({ type: 'msg', msg: m, id: m.id });
+    for (const m of bucket) {
+      out.push({ type: 'msg', msg: m, id: m.id });
+    }
+    const oldestInDay = bucket[bucket.length - 1];
+    out.push({ type: 'day', label: dayLabel, id: `day-${dayLabel}-${oldestInDay.id}` });
   }
   return out;
 }
@@ -65,6 +78,7 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
   const typingClear = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList<Row>>(null);
   const mounted = useRef(true);
+  const lastSessionRef = useRef<string | null>(null);
 
   const peerName = prefName?.trim() || 'Conversation';
   const showPropertyBar = Boolean(propertyId && propertyTitle && propertyPrice != null);
@@ -83,8 +97,8 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     });
   }, []);
 
-  const loadMessages = useCallback(async () => {
-    setLoading(true);
+  const loadMessages = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     try {
       const res = await fetchChatMessages(sessionId, { page: 1, limit: 100 });
       if (!mounted.current) return;
@@ -92,15 +106,26 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
         setMessages(res.data);
       }
     } catch (e) {
-      Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Could not load chat' });
+      if (!opts?.silent) {
+        Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Could not load chat' });
+      }
     } finally {
-      if (mounted.current) setLoading(false);
+      if (mounted.current && !opts?.silent) setLoading(false);
     }
   }, [sessionId]);
 
-  useEffect(() => {
-    void loadMessages();
-  }, [loadMessages]);
+  useFocusEffect(
+    useCallback(() => {
+      const isSameSession = lastSessionRef.current === sessionId;
+      lastSessionRef.current = sessionId;
+      void loadMessages({ silent: isSameSession });
+      const sock = getChatSocket();
+      if (sock?.connected) {
+        sock.emit('chat:join', sessionId);
+        sock.emit('chat:read', { sessionId });
+      }
+    }, [sessionId, loadMessages]),
+  );
 
   useEffect(() => {
     let sock: Socket | undefined;
@@ -132,16 +157,21 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
       Toast.show({ type: 'error', text1: payload?.message || 'Chat error' });
     };
 
-    sock.emit('chat:join', sessionId);
+    const joinAndRead = () => {
+      sock?.emit('chat:join', sessionId);
+      sock?.emit('chat:read', { sessionId });
+    };
+
+    joinAndRead();
+    sock.on('connect', joinAndRead);
     sock.on('chat:message', onMsg);
     sock.on('chat:typing', onTyping);
     sock.on('chat:stop-typing', onStop);
     sock.on('chat:error', onErr);
 
-    sock.emit('chat:read', { sessionId });
-
     return () => {
       sock?.emit('chat:leave', sessionId);
+      sock?.off('connect', joinAndRead);
       sock?.off('chat:message', onMsg);
       sock?.off('chat:typing', onTyping);
       sock?.off('chat:stop-typing', onStop);
@@ -177,14 +207,11 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
       if (!asset.uri) return;
       setSending(true);
       try {
+        const { uri, type, name } = normalizeChatImagePart(asset);
         const form = new FormData();
         form.append('messageType', 'IMAGE');
         form.append('content', ' ');
-        form.append('media', {
-          uri: asset.uri,
-          type: asset.type || 'image/jpeg',
-          name: asset.fileName || 'photo.jpg',
-        } as unknown as Blob);
+        form.append('media', { uri, type, name } as unknown as Blob);
         const res = await sendChatMessageMultipart(sessionId, form);
         if (res.success && res.data) mergeMessage(res.data);
       } catch (e) {
@@ -218,9 +245,7 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ChatThreadHeader peerName={peerName} peerImageUri={prefImage} isTyping={false} onBack={() => navigation.goBack()} />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#00152e" />
-        </View>
+        <ChatThreadSkeleton />
       </SafeAreaView>
     );
   }
@@ -274,7 +299,6 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#faf9fc' },
   flex: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default ChatThreadScreen;

@@ -1,46 +1,42 @@
 /**
- * POST /api/properties — request shape aligned with list/detail fields and common Nest/Express patterns.
- * Adjust keys if your backend contract differs (see mapListPropertyFormToCreatePayload).
+ * POST /api/properties — aligned with `ghar-dekho-backend` `createProperty` + route validators.
  */
 
-export type CreatePropertyStatus = 'DRAFT' | 'ACTIVE' | 'PENDING';
+export type CreatePropertyStatus = 'DRAFT' | 'ACTIVE';
 
 export interface CreatePropertyPayload {
   status: CreatePropertyStatus;
   listingType: string;
   propertyType: string;
+  /** Prisma PropertyCategory */
+  category: string;
   title: string;
-  description?: string;
+  description: string;
   price: number;
   currency?: string;
   city: string;
   locality: string;
-  state?: string;
-  pincode?: string;
-  address?: string;
+  state: string;
+  pincode: string;
+  address: string;
   latitude?: number;
   longitude?: number;
   bhk?: number | null;
   builtUpArea?: number | null;
   carpetArea?: number | null;
-  floor?: number | null;
+  floorNumber?: number | null;
   totalFloors?: number | null;
   ageOfProperty?: number | null;
-  isPriceNegotiable?: boolean;
+  priceNegotiable?: boolean;
   isRERAApproved?: boolean;
   reraNumber?: string | null;
-  /** Public image URLs (https) or server-supported URIs */
-  imageUrls?: string[];
-  primaryImageIndex?: number;
+  hasNOC?: boolean;
+  hasApprovedMaps?: boolean;
+  isFeatured?: boolean;
+  /** Resolved server-side to `amenityIds` via seed names */
   amenitySlugs?: string[];
-  requestFeatured?: boolean;
-  nocFromSociety?: boolean;
-  approvedMasterPlan?: boolean;
-  /** Device file URI until upload pipeline exists */
-  videoTourFileUri?: string | null;
 }
 
-/** Success body may be the new row or a minimal `{ id }` wrapper */
 export type CreatePropertyResponse =
   | { id: string }
   | { property: { id: string } }

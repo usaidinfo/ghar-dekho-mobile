@@ -19,7 +19,27 @@ export interface AuthResponseData {
 export function getApiErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as ApiErrorBody | undefined;
-    if (data?.message) return data.message;
+    if (data) {
+      const msg = data.message || err.message || 'Request failed';
+      const code = data.code;
+
+      // Backend validation format: { message: 'Validation failed.', code: 'VALIDATION_ERROR', errors: [{ field, message }] }
+      if (code === 'VALIDATION_ERROR' && Array.isArray(data.errors) && data.errors.length) {
+        const first = data.errors[0] as { field?: unknown; message?: unknown };
+        const field = typeof first.field === 'string' ? first.field : undefined;
+        const m = typeof first.message === 'string' ? first.message : undefined;
+        if (field && m) return `${m} (${field})`;
+        if (m) return m;
+        return msg;
+      }
+
+      // Other error shapes with `errors`
+      if (typeof data.errors === 'string' && data.errors.trim()) {
+        return `${msg} (${data.errors.trim()})`;
+      }
+
+      return msg;
+    }
     return err.message || 'Request failed';
   }
   return err instanceof Error ? err.message : 'Something went wrong';

@@ -10,9 +10,7 @@ import type {
   ProjectBadge,
   PropertyCategory,
 } from '../types/property.types';
-
-const PLACEHOLDER_IMAGE =
-  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=900&q=80';
+import { PROPERTY_PLACEHOLDER_IMAGE } from '../constants/images';
 
 export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -85,12 +83,12 @@ export function formatInrPrice(price: number, listingType: string): string {
 
 function pickListImage(p: PropertyListItem): string {
   const img = p.images?.[0];
-  return img?.imageUrl || img?.thumbnailUrl || PLACEHOLDER_IMAGE;
+  return img?.imageUrl || img?.thumbnailUrl || PROPERTY_PLACEHOLDER_IMAGE;
 }
 
 function pickNearbyImage(p: NearbyPropertyApiItem): string {
   const t = p.images?.[0]?.thumbnailUrl;
-  return t || PLACEHOLDER_IMAGE;
+  return t || PROPERTY_PLACEHOLDER_IMAGE;
 }
 
 function projectBadgeFromProperty(p: PropertyListItem): ProjectBadge | undefined {
@@ -147,7 +145,7 @@ export function propertyToTopListing(p: PropertyListItem): TopListing {
     title: p.title,
     locality: p.locality,
     city: p.city,
-    thumbnailUrl: img?.thumbnailUrl || img?.imageUrl || PLACEHOLDER_IMAGE,
+    thumbnailUrl: img?.thumbnailUrl || img?.imageUrl || PROPERTY_PLACEHOLDER_IMAGE,
     badge: topListingBadge(p),
     priceRange: formatInrPrice(p.price, p.listingType),
   };

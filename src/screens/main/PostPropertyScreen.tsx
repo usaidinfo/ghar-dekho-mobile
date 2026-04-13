@@ -9,11 +9,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useForm } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { CompositeNavigationProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 
@@ -22,18 +20,16 @@ import {
   getListPropertyDefaultValues,
   mergeListPropertyDefaults,
 } from '../../components/list-property/listPropertyDefaultValues';
-import type { BottomTabParamList, MainStackParamList } from '../../navigation/types';
-import { createProperty } from '../../services/property.service';
+import type { MainStackParamList } from '../../navigation/types';
+import { createPropertyMultipart, uploadPropertyListingImages } from '../../services/property.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { ListPropertyFormValues } from '../../types/list-property-form.types';
-import { mapListPropertyFormToCreatePayload } from '../../utils/mapListPropertyFormToCreatePayload';
+import { mapListPropertyFormToCreatePayload, orderPhotoUrisForUpload } from '../../utils/mapListPropertyFormToCreatePayload';
+import { forwardGeocode } from '../../utils/forwardGeocode';
 
 const GLASS = 'rgba(248, 249, 250, 0.92)';
 
-type PostNav = CompositeNavigationProp<
-  BottomTabNavigationProp<BottomTabParamList, 'Post'>,
-  NativeStackNavigationProp<MainStackParamList>
->;
+type PostNav = NativeStackNavigationProp<MainStackParamList>;
 
 export interface PostPropertyScreenProps {
   mode?: 'create' | 'edit';
@@ -42,16 +38,25 @@ export interface PostPropertyScreenProps {
 }
 
 function validatePublish(values: ListPropertyFormValues): string | null {
-  if (!values.city.trim()) {
-    return 'Please enter city';
-  }
-  if (!values.locality.trim()) {
-    return 'Please enter locality or society';
+  if (!values.city.trim()) return 'Please enter city';
+  if (!values.locality.trim()) return 'Please enter locality or society';
+  if (!values.state.trim()) return 'Please enter state';
+  if (!values.pincode.trim()) return 'Please enter pincode';
+  const lat = Number(values.latitude.trim());
+  const lon = Number(values.longitude.trim());
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return 'Please set location (tap Detect my location)';
   }
   const price = Number(values.totalPrice.replace(/,/g, '').replace(/\D/g, '')) || 0;
-  if (price <= 0) {
-    return 'Please enter a valid total price';
-  }
+  if (price <= 0) return 'Please enter a valid total price';
+  return null;
+}
+
+function validateDraft(values: ListPropertyFormValues): string | null {
+  if (!values.city.trim()) return 'Please enter city';
+  if (!values.locality.trim()) return 'Please enter locality';
+  if (!values.state.trim()) return 'Please enter state';
+  if (!values.pincode.trim()) return 'Please enter pincode';
   return null;
 }
 
@@ -88,7 +93,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
       navigation.goBack();
       return;
     }
-    navigation.navigate('Home');
+    navigation.navigate('Tabs', { screen: 'Home' });
   };
 
   const requireAuth = useCallback((): boolean => {
@@ -111,11 +116,51 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
           Toast.show({ type: 'error', text1: err });
           return;
         }
+      } else {
+        const derr = validateDraft(values);
+        if (derr) {
+          Toast.show({ type: 'error', text1: derr });
+          return;
+        }
       }
       setPending(publish ? 'publish' : 'draft');
       try {
-        const payload = mapListPropertyFormToCreatePayload(values, publish ? 'ACTIVE' : 'DRAFT');
-        const id = await createProperty(payload);
+        const status = publish ? 'ACTIVE' : 'DRAFT';
+        const payload = mapListPropertyFormToCreatePayload(values, status);
+
+        // If user typed address manually and did not use "Detect my location", try to geocode once.
+        if (status === 'ACTIVE' && (payload.latitude == null || payload.longitude == null)) {
+          const query = [values.locality, values.city, values.state, values.pincode]
+            .map(s => s.trim())
+            .filter(Boolean)
+            .join(', ');
+          const ll = await forwardGeocode(query);
+          if (ll) {
+            payload.latitude = ll.latitude;
+            payload.longitude = ll.longitude;
+            // Keep form fields in sync for user + future edits
+            form.setValue('latitude', String(ll.latitude));
+            form.setValue('longitude', String(ll.longitude));
+          } else {
+            throw new Error('Could not find location for this address. Please use "Detect my location".');
+          }
+        }
+
+        const photoOrder = orderPhotoUrisForUpload(values.photoUris, values.coverIndex);
+        // Debug: verify payload + picked URIs in Metro console
+        // eslint-disable-next-line no-console
+        console.log('POST property payload', payload);
+        // eslint-disable-next-line no-console
+        console.log('POST property photoOrder', photoOrder);
+        const id = await createPropertyMultipart(payload, photoOrder);
+
+        // Backward-compat fallback: if for any reason server didn't accept files, try old endpoint.
+        // (No-op if `photoOrder` has no local URIs.)
+        try {
+          await uploadPropertyListingImages(id, photoOrder);
+        } catch {
+          // swallow; main create call already succeeded
+        }
         if (publish) {
           Toast.show({
             type: 'success',
@@ -140,7 +185,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
         setPending('idle');
       }
     },
-    [navigation, requireAuth],
+    [navigation, requireAuth, form],
   );
 
   const onSaveDraft = form.handleSubmit(values => persistListing(values, false));

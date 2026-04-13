@@ -1,4 +1,5 @@
 import axios, {
+  AxiosHeaders,
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from 'axios';
@@ -34,6 +35,16 @@ httpClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Let axios set multipart boundary for RN FormData (default JSON Content-Type breaks uploads)
+  if (config.data && typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const h = config.headers;
+    if (h instanceof AxiosHeaders) {
+      h.delete('Content-Type');
+    } else if (h && typeof h === 'object') {
+      delete (h as Record<string, unknown>)['Content-Type'];
+      delete (h as Record<string, unknown>)['content-type'];
+    }
   }
   return config;
 });

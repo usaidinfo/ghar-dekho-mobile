@@ -4,16 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  Text,
-  TouchableOpacity,
-} from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, Alert, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,6 +17,8 @@ import { useAuthStore } from '../../stores/auth.store';
 import ChatInboxHeader from '../../components/chat/ChatInboxHeader';
 import ChatFilterChips, { type InboxFilter } from '../../components/chat/ChatFilterChips';
 import ChatSessionCard from '../../components/chat/ChatSessionCard';
+import ChatInboxSkeleton, { ChatInboxListFooterSkeleton } from '../../components/chat/ChatInboxSkeleton';
+import { connectChatSocket, getChatSocket } from '../../api/chatSocket';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -61,11 +54,12 @@ const ChatInboxScreen: React.FC = () => {
 
   const bottomPad = Math.max(insets.bottom, 12) + 88;
 
-  const load = useCallback(async (pageNum: number, mode: 'replace' | 'append', opts?: { isRefresh?: boolean }) => {
-    if (mode === 'replace') setError(null);
+  const load = useCallback(async (pageNum: number, mode: 'replace' | 'append', opts?: { isRefresh?: boolean; silent?: boolean }) => {
+    const silent = Boolean(opts?.silent);
+    if (mode === 'replace' && !silent) setError(null);
     if (mode === 'append') setLoadingMore(true);
     else if (opts?.isRefresh) setRefreshing(true);
-    else setLoading(true);
+    else if (mode === 'replace' && !silent) setLoading(true);
     try {
       const res = await fetchChatSessions({ page: pageNum, limit: 25 });
       if (!mounted.current) return;
@@ -78,23 +72,59 @@ const ChatInboxScreen: React.FC = () => {
       else setRawItems(next);
     } catch (e: unknown) {
       if (!mounted.current) return;
-      if (isAxiosError(e) && e.response?.status === 401) {
-        setError('Please sign in again.');
-      } else {
-        setError(e instanceof Error ? e.message : 'Failed to load');
+      if (!silent) {
+        if (isAxiosError(e) && e.response?.status === 401) {
+          setError('Please sign in again.');
+        } else {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        }
+        if (mode === 'replace') setRawItems([]);
       }
-      if (mode === 'replace') setRawItems([]);
     } finally {
       if (!mounted.current) return;
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
+      if (mode === 'replace' && !silent && !opts?.isRefresh) setLoading(false);
+      if (opts?.isRefresh) setRefreshing(false);
+      if (mode === 'append') setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
     if (!accessToken) return;
     void load(1, 'replace');
+  }, [accessToken, load]);
+
+  /** Keep socket connected on inbox so peer messages bump the list without leaving the screen */
+  useEffect(() => {
+    if (!accessToken) return;
+    try {
+      connectChatSocket(accessToken);
+    } catch {
+      /* no token edge */
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    let sock = getChatSocket();
+    if (!sock) {
+      try {
+        sock = connectChatSocket(accessToken);
+      } catch {
+        return;
+      }
+    }
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const onNotify = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        void load(1, 'replace', { silent: true });
+      }, 450);
+    };
+    sock.on('chat:notification', onNotify);
+    return () => {
+      sock?.off('chat:notification', onNotify);
+      if (debounce) clearTimeout(debounce);
+    };
   }, [accessToken, load]);
 
   const onRefresh = useCallback(() => {
@@ -147,9 +177,7 @@ const ChatInboxScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ChatInboxHeader title="Messages" />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#00152e" />
-        </View>
+        <ChatInboxSkeleton />
       </SafeAreaView>
     );
   }
@@ -178,7 +206,7 @@ const ChatInboxScreen: React.FC = () => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00152e" />}
         onEndReached={filter === 'all' ? loadMore : undefined}
         onEndReachedThreshold={0.3}
-        ListFooterComponent={loadingMore ? <ActivityIndicator style={{ margin: 16 }} color="#00152e" /> : null}
+        ListFooterComponent={loadingMore ? <ChatInboxListFooterSkeleton /> : null}
         ListEmptyComponent={
           <View style={styles.center}>
             <Text style={styles.emptyTitle}>No conversations</Text>

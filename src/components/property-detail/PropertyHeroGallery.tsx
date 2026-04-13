@@ -11,13 +11,13 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { PropertyImageItem } from '../../types/property-detail.types';
+import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 
 const HERO_H = 400;
 const PRIMARY = '#122A47';
 const GLASS = 'rgba(255, 255, 255, 0.88)';
 
-const FALLBACK_HERO =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuCG2pa1B5srphbbVLfOU6cfDrD1Brk-YQef3PpPULaMhyZAD_CYphm-iAyiq63kQfg6AutRphNQDl20znm25psjfHua3FWDfsQruZyx-HBJcnyFRp2y7ie6_4va1hztYdslgCE8PXj-zeQamUmDizBOEqWsBp14gdACxfs4kJ5Z7wRA_HvfJiWPtsy6jH29zDG4jDV6q6npeBBumsguy3MAEF95HptNwXRopKWhLQhS-5TZmIkL_3klv5w99WOPtHumGoD9oBKfLFKa';
+const FALLBACK_HERO = PROPERTY_PLACEHOLDER_IMAGE;
 
 interface PropertyHeroGalleryProps {
   images: PropertyImageItem[];

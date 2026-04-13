@@ -11,6 +11,7 @@ import MyListingsScreen from '../screens/main/MyListingsScreen';
 import WishlistScreen from '../screens/main/WishlistScreen';
 import ChatInboxScreen from '../screens/main/ChatInboxScreen';
 import ChatThreadScreen from '../screens/main/ChatThreadScreen';
+import PostPropertyScreen from '../screens/main/PostPropertyScreen';
 import type { MainStackParamList } from './types';
 
 const Placeholder: React.FC<{ label: string }> = ({ label }) => (
@@ -33,6 +34,7 @@ const MainNavigator: React.FC = () => (
     screenOptions={{ headerShown: false }}
   >
     <Stack.Screen name="Tabs" component={BottomTabNavigator} />
+    <Stack.Screen name="PostProperty" component={PostPropertyScreen} />
     <Stack.Screen name="Login" component={LoginScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
     <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} />

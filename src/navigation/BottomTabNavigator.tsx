@@ -1,7 +1,6 @@
 /**
  * @file BottomTabNavigator.tsx
- * @description Compact bottom tabs — all items sit inside the bar; center Post (OLX-style)
- * floats up with ~half the disc above the bar. Ring uses brand secondary only (#D1A14E).
+ * @description Compact bottom tabs — center Post opens stack `PostProperty` (no tab bar).
  */
 
 import React from 'react';
@@ -12,12 +11,10 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import HomeScreen from '../screens/main/HomeScreen';
-import PostPropertyScreen from '../screens/main/PostPropertyScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import type { BottomTabParamList } from './types';
 
 const NAVY = '#122A47';
-/** Tailwind `secondary` — sole ring / accent for Post FAB */
 const SECONDARY = '#D1A14E';
 const MUTED = 'rgba(119,119,121,0.72)';
 
@@ -30,18 +27,21 @@ const Placeholder: React.FC<{ label: string }> = ({ label }) => (
 const MembershipScreen = () => <Placeholder label="Membership" />;
 const HistoryScreen = () => <Placeholder label="History" />;
 
+type TabName = keyof BottomTabParamList;
+
 interface TabItem {
-  name: keyof BottomTabParamList;
+  name: TabName;
   icon: string;
   activeIcon: string;
   label: string;
   isCenter?: boolean;
 }
 
+/** Visual order: two tabs — FAB — two tabs (Post is not a tab route). */
 const TAB_ITEMS: TabItem[] = [
   { name: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'HOME' },
   { name: 'Membership', icon: 'crown-outline', activeIcon: 'crown', label: 'MEMBERSHIP' },
-  { name: 'Post', icon: 'plus-circle-outline', activeIcon: 'plus-circle', label: 'POST', isCenter: true },
+  { name: 'Home', icon: 'plus-circle-outline', activeIcon: 'plus-circle', label: 'POST', isCenter: true },
   { name: 'History', icon: 'history', activeIcon: 'history', label: 'HISTORY' },
   { name: 'Profile', icon: 'account-outline', activeIcon: 'account', label: 'PROFILE' },
 ];
@@ -49,31 +49,50 @@ const TAB_ITEMS: TabItem[] = [
 const ACTIVE_SIZE = 44;
 const ICON_INACTIVE = 22;
 const ICON_ACTIVE = 20;
-
-/** White disc + secondary ring; total visual size for float math */
 const FAB_SIZE = 50;
 const RING_WIDTH = 4;
-
-/**
- * Negative shift so ~half the FAB sits above the tab bar top (OLX-style).
- * Tune with FAB_SIZE if you change diameter.
- */
 const FAB_FLOAT_Y = -(FAB_SIZE / 2 - 8);
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 4);
+  const stackNav = navigation.getParent();
 
   return (
     <View style={styles.tabBarRoot}>
       <View style={[styles.tabBar, { paddingBottom: bottomPad }]}>
         {TAB_ITEMS.map((tab, index) => {
-          const isFocused = state.index === index;
+          if (tab.isCenter) {
+            return (
+              <View key="post-fab" style={styles.centerWrap} pointerEvents="box-none">
+                <TouchableOpacity
+                  onPress={() => stackNav?.navigate('PostProperty' as never)}
+                  activeOpacity={0.88}
+                  style={[styles.fabHit, { transform: [{ translateY: FAB_FLOAT_Y }] }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Post property"
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <View style={styles.fabRing}>
+                    <View style={styles.fabCore}>
+                      <Icon name="plus" size={28} color={NAVY} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.fabLabel}>{tab.label}</Text>
+              </View>
+            );
+          }
+
+          const routeIndex = state.routes.findIndex(r => r.name === tab.name);
+          const isFocused = routeIndex >= 0 && state.index === routeIndex;
 
           const onPress = () => {
+            const key = state.routes[routeIndex]?.key;
+            if (!key) return;
             const event = navigation.emit({
               type: 'tabPress',
-              target: state.routes[index]?.key ?? '',
+              target: key,
               canPreventDefault: true,
             });
             if (!isFocused && !event.defaultPrevented) {
@@ -81,31 +100,9 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
             }
           };
 
-          if (tab.isCenter) {
-            return (
-              <View key={tab.name} style={styles.centerWrap} pointerEvents="box-none">
-                <TouchableOpacity
-                  onPress={onPress}
-                  activeOpacity={0.88}
-                  style={[styles.fabHit, { transform: [{ translateY: FAB_FLOAT_Y }] }]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isFocused }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <View style={[styles.fabRing, isFocused && styles.fabRingFocused]}>
-                    <View style={styles.fabCore}>
-                      <Icon name="plus" size={28} color={NAVY} />
-                    </View>
-                  </View>
-                </TouchableOpacity>
-                <Text style={[styles.fabLabel, isFocused && styles.fabLabelActive]}>{tab.label}</Text>
-              </View>
-            );
-          }
-
           return (
             <TouchableOpacity
-              key={tab.name}
+              key={`${tab.name}-${index}`}
               style={styles.tabItem}
               onPress={onPress}
               activeOpacity={0.75}
@@ -136,7 +133,6 @@ const BottomTabNavigator: React.FC = () => (
   <Tab.Navigator tabBar={props => <CustomTabBar {...props} />} screenOptions={{ headerShown: false }}>
     <Tab.Screen name="Home" component={HomeScreen} />
     <Tab.Screen name="Membership" component={MembershipScreen} />
-    <Tab.Screen name="Post" component={PostPropertyScreen} />
     <Tab.Screen name="History" component={HistoryScreen} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
@@ -214,7 +210,6 @@ const styles = StyleSheet.create({
       android: { elevation: 14 },
     }),
   },
-  /** Ring = secondary only */
   fabRing: {
     width: FAB_SIZE,
     height: FAB_SIZE,
@@ -222,9 +217,6 @@ const styles = StyleSheet.create({
     backgroundColor: SECONDARY,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  fabRingFocused: {
-    transform: [{ scale: 1.04 }],
   },
   fabCore: {
     width: FAB_SIZE - RING_WIDTH * 2,
@@ -240,10 +232,6 @@ const styles = StyleSheet.create({
     color: MUTED,
     letterSpacing: 0.5,
     marginTop: 0,
-  },
-  fabLabelActive: {
-    color: NAVY,
-    fontWeight: '800',
   },
 });
 

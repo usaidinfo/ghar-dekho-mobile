@@ -124,3 +124,95 @@ export async function createProperty(payload: CreatePropertyPayload): Promise<st
     throw e instanceof Error ? e : new Error('Could not create property');
   }
 }
+
+const LOCAL_PHOTO_RE = /^(file:|content:|ph:|assets-library:)/i;
+
+function guessImageMimeFromName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic';
+  return 'image/jpeg';
+}
+
+function appendFormValue(form: FormData, key: string, value: unknown) {
+  if (value === undefined) return;
+  if (value === null) return;
+  // RN FormData is string-based for fields
+  form.append(key, typeof value === 'string' ? value : String(value));
+}
+
+/**
+ * Create listing + upload images in one request (multipart).
+ * Backend route: POST /api/properties (multer `.any()` + controller attaches images).
+ */
+export async function createPropertyMultipart(
+  payload: CreatePropertyPayload,
+  orderedLocalUris: string[],
+): Promise<string> {
+  const locals = orderedLocalUris.filter(u => u && LOCAL_PHOTO_RE.test(u));
+
+  const form = new FormData();
+  (Object.entries(payload) as Array<[keyof CreatePropertyPayload, unknown]>).forEach(([k, v]) =>
+    appendFormValue(form, String(k), v),
+  );
+
+  for (let i = 0; i < locals.length; i += 1) {
+    const uri = locals[i]!;
+    const nameGuess = uri.split('/').pop()?.split('?')[0] || `photo-${i + 1}.jpg`;
+    const name = /\.(jpe?g|png|webp|heic|heif)$/i.test(nameGuess) ? nameGuess : `${nameGuess}.jpg`;
+    const type = guessImageMimeFromName(name);
+    form.append('images', { uri, type, name } as unknown as Blob);
+  }
+
+  try {
+    const { data } = await httpClient.post<ApiSuccess<CreatePropertyResponse | PropertyListItem>>(
+      '/api/properties',
+      form,
+      { timeout: 120_000 },
+    );
+    if (!data.success || !data.data) {
+      throw new Error((data as { message?: string }).message || 'Could not create property');
+    }
+    return readNewPropertyId(data.data);
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      throw new Error(getApiErrorMessage(e));
+    }
+    throw e instanceof Error ? e : new Error('Could not create property');
+  }
+}
+
+/**
+ * Upload listing photos to Cloudinary via POST /api/properties/:id/images (multipart, multer `.any()`).
+ */
+export async function uploadPropertyListingImages(propertyId: string, orderedLocalUris: string[]): Promise<void> {
+  const locals = orderedLocalUris.filter(u => u && LOCAL_PHOTO_RE.test(u));
+  if (!locals.length) return;
+
+  const form = new FormData();
+  for (let i = 0; i < locals.length; i += 1) {
+    const uri = locals[i]!;
+    const nameGuess = uri.split('/').pop()?.split('?')[0] || `photo-${i + 1}.jpg`;
+    const name = /\.(jpe?g|png|webp|heic|heif)$/i.test(nameGuess) ? nameGuess : `${nameGuess}.jpg`;
+    const type = guessImageMimeFromName(name);
+    // RN FormData expects a { uri, name, type } file object
+    form.append('images', { uri, type, name } as unknown as Blob);
+  }
+
+  try {
+    const { data } = await httpClient.post<ApiSuccess<unknown>>(
+      `/api/properties/${propertyId}/images`,
+      form,
+      { timeout: 120_000 },
+    );
+    if (!data.success) {
+      throw new Error((data as { message?: string }).message || 'Image upload failed');
+    }
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      throw new Error(getApiErrorMessage(e));
+    }
+    throw e instanceof Error ? e : new Error('Image upload failed');
+  }
+}

@@ -25,9 +25,8 @@ import type { PropertyCategory } from '../../types/property.types';
 import type { PropertyListItem } from '../../types/home.api.types';
 import { searchProperties } from '../../services/property.service';
 import { homeCategoryToApiFilters, formatInrPrice } from '../../utils/homePropertyMappers';
+import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 
-const PLACEHOLDER =
-  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80';
 const NAVY = '#122A47';
 const MUTED = '#777779';
 
@@ -147,7 +146,8 @@ const SearchResultsScreen: React.FC<Props> = () => {
 
   const renderItem = useCallback(
     ({ item }: { item: PropertyListItem }) => {
-      const img = item.images?.[0]?.imageUrl || item.images?.[0]?.thumbnailUrl || PLACEHOLDER;
+      const img =
+        item.images?.[0]?.imageUrl || item.images?.[0]?.thumbnailUrl || PROPERTY_PLACEHOLDER_IMAGE;
       const loc = [item.locality, item.city].filter(Boolean).join(', ');
       const priceLabel = formatInrPrice(item.price, item.listingType);
       return (

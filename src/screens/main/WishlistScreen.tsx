@@ -27,9 +27,8 @@ import type { WishlistRow } from '../../types/wishlist.api.types';
 import { fetchWishlist, removeWishlistItem } from '../../services/wishlist.service';
 import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { useAuthStore } from '../../stores/auth.store';
+import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 
-const PLACEHOLDER =
-  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80';
 const PRIMARY = '#00152e';
 const MUTED = '#44474d';
 const SURFACE = '#faf9fc';
@@ -78,7 +77,7 @@ function statusPillStyle(status: string): { bg: string; fg: string } {
 
 function pickImage(p: WishlistRow['property']): string {
   const img = p.images?.[0];
-  return img?.thumbnailUrl || img?.imageUrl || PLACEHOLDER;
+  return img?.thumbnailUrl || img?.imageUrl || PROPERTY_PLACEHOLDER_IMAGE;
 }
 
 const WishlistScreen: React.FC = () => {

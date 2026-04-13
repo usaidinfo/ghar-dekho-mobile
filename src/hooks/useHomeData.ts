@@ -6,6 +6,7 @@ import {
 } from '../services/property.service';
 import type { PropertyListItem } from '../types/home.api.types';
 import type { FeaturedHero, Project, NearbyProperty, TopListing, PropertyCategory } from '../types/property.types';
+import { PROPERTY_PLACEHOLDER_IMAGE } from '../constants/images';
 import {
   dedupeById,
   homeCategoryToApiFilters,
@@ -26,8 +27,7 @@ const FALLBACK_HERO: FeaturedHero = {
   title: 'Find homes that fit your life',
   subtitle: 'Browse verified listings for sale and rent across India.',
   badgeLabel: 'Ghar Dekho',
-  imageUrl:
-    'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=900&q=80',
+  imageUrl: PROPERTY_PLACEHOLDER_IMAGE,
   ctaLabel: 'Explore',
   propertyId: '',
 };
