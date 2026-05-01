@@ -10,6 +10,7 @@ interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+  hasHydrated: boolean;
   setAuth: (user: AuthUser, access: string, refresh: string) => void;
   setTokens: (access: string, refresh: string) => void;
   clearAuth: () => void;
@@ -25,6 +26,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      hasHydrated: false,
       setAuth: (user, access, refresh) => {
         setSessionTokens(access, refresh);
         set({ user, accessToken: access, refreshToken: refresh });
@@ -63,7 +65,9 @@ export const useAuthStore = create<AuthState>()(
         accessToken: s.accessToken,
         refreshToken: s.refreshToken,
       }),
-      onRehydrateStorage: () => state => {
+      onRehydrateStorage: () => (state) => {
+        // Prevent "logout → login" flashes while zustand persist is still restoring state.
+        useAuthStore.setState({ hasHydrated: true });
         if (state?.accessToken && state?.refreshToken) {
           setSessionTokens(state.accessToken, state.refreshToken);
         }

@@ -31,6 +31,16 @@ export type MainStackParamList = {
   Login: undefined;
   Signup: undefined;
   PropertyDetail: { propertyId: string };
+  MyVisits: undefined;
+  VisitScheduled: {
+    propertyId: string;
+    propertyTitle: string;
+    propertyThumb?: string | null;
+    isVerified?: boolean;
+    dateLabel: string;
+    timeLabel: string;
+    typeLabel: string;
+  };
   ProjectDetail: { projectId: string };
   SearchResults: { query?: string; category?: string };
   MyListings: undefined;

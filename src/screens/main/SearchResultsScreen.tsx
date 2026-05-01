@@ -26,9 +26,13 @@ import type { PropertyListItem } from '../../types/home.api.types';
 import { searchProperties } from '../../services/property.service';
 import { homeCategoryToApiFilters, formatInrPrice } from '../../utils/homePropertyMappers';
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
+import SearchHeader from '../../components/search/SearchHeader';
+import type { SearchFiltersState } from '../../components/search/SearchFiltersPanel';
+import SearchFiltersModal from '../../components/search/SearchFiltersModal';
 
 const NAVY = '#122A47';
 const MUTED = '#777779';
+const SURFACE = '#F1F3F5';
 
 const CATEGORY_VALUES: PropertyCategory[] = ['Buy', 'Rent', 'Plot/Land', 'Co-working', 'Commercial'];
 
@@ -57,6 +61,19 @@ const SearchResultsScreen: React.FC<Props> = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersUi, setFiltersUi] = useState<SearchFiltersState>({
+    minPrice: '',
+    maxPrice: '',
+    propertyType: '',
+    furnishing: '',
+  });
+  const [appliedFilters, setAppliedFilters] = useState<SearchFiltersState>({
+    minPrice: '',
+    maxPrice: '',
+    propertyType: '',
+    furnishing: '',
+  });
   const listMounted = useRef(true);
 
   useEffect(() => {
@@ -67,6 +84,17 @@ const SearchResultsScreen: React.FC<Props> = () => {
   }, []);
 
   const filters = useMemo(() => homeCategoryToApiFilters(routeCategory), [routeCategory]);
+
+  const appliedParams = useMemo(() => {
+    const p: Record<string, string | undefined> = {};
+    const min = appliedFilters.minPrice.trim().replace(/[^\d]/g, '');
+    const max = appliedFilters.maxPrice.trim().replace(/[^\d]/g, '');
+    if (min) p.minPrice = min;
+    if (max) p.maxPrice = max;
+    if (appliedFilters.propertyType) p.propertyType = appliedFilters.propertyType;
+    if (appliedFilters.furnishing) p.furnishing = appliedFilters.furnishing;
+    return p;
+  }, [appliedFilters]);
 
   const fetchPage = useCallback(
     async (
@@ -89,6 +117,7 @@ const SearchResultsScreen: React.FC<Props> = () => {
         const res = await searchProperties({
           q,
           ...filters,
+          ...appliedParams,
           page: pageNum,
           limit: 20,
           sort: 'newest',
@@ -117,7 +146,7 @@ const SearchResultsScreen: React.FC<Props> = () => {
         setLoadingMore(false);
       }
     },
-    [queryText, filters],
+    [queryText, filters, appliedParams],
   );
 
   useEffect(() => {
@@ -136,6 +165,36 @@ const SearchResultsScreen: React.FC<Props> = () => {
     const trimmed = queryText.trim();
     navigation.setParams({ query: trimmed || undefined, category: routeCategory });
   }, [navigation, queryText, routeCategory]);
+
+  const applyFilters = useCallback(() => {
+    // Basic sanity: if both exist and min > max, swap.
+    const min = Number(filtersUi.minPrice.trim().replace(/[^\d]/g, '') || 0);
+    const max = Number(filtersUi.maxPrice.trim().replace(/[^\d]/g, '') || 0);
+    let next = { ...filtersUi };
+    if (min > 0 && max > 0 && min > max) {
+      next = { ...filtersUi, minPrice: String(max), maxPrice: String(min) };
+    }
+    setAppliedFilters(next);
+    setFiltersOpen(false);
+    void fetchPage(1, 'replace');
+  }, [filtersUi, fetchPage]);
+
+  const clearFilters = useCallback(() => {
+    const blank: SearchFiltersState = { minPrice: '', maxPrice: '', propertyType: '', furnishing: '' };
+    setFiltersUi(blank);
+    setAppliedFilters(blank);
+    setFiltersOpen(false);
+    void fetchPage(1, 'replace');
+  }, [fetchPage]);
+
+  const activeFilterCount = useMemo(() => {
+    let c = 0;
+    if (appliedFilters.minPrice.trim()) c += 1;
+    if (appliedFilters.maxPrice.trim()) c += 1;
+    if (appliedFilters.propertyType) c += 1;
+    if (appliedFilters.furnishing) c += 1;
+    return c;
+  }, [appliedFilters]);
 
   const loadMore = useCallback(() => {
     if (loading || loadingMore || !meta?.hasNext) return;
@@ -180,24 +239,28 @@ const SearchResultsScreen: React.FC<Props> = () => {
 
   const listHeader = useMemo(
     () => (
-      <View style={styles.searchBarWrap}>
-        <Icon name="magnify" size={20} color={NAVY} style={styles.searchIcon} />
-        <TextInput
-          value={queryText}
-          onChangeText={setQueryText}
-          placeholder="Search by area, title…"
-          placeholderTextColor="rgba(18,42,71,0.4)"
-          style={styles.searchInput}
-          returnKeyType="search"
-          onSubmitEditing={submitSearch}
-          clearButtonMode="while-editing"
-        />
-        <TouchableOpacity onPress={submitSearch} style={styles.goBtn} hitSlop={8}>
-          <Text style={styles.goBtnText}>Go</Text>
-        </TouchableOpacity>
-      </View>
+      <SearchHeader
+        queryText={queryText}
+        onChangeQuery={setQueryText}
+        onSubmitSearch={submitSearch}
+        filtersOpen={filtersOpen}
+        onToggleFilters={() => setFiltersOpen(o => !o)}
+        activeFilterCount={activeFilterCount}
+        filtersValue={filtersUi}
+        onChangeFilters={setFiltersUi}
+        onApplyFilters={applyFilters}
+        onClearFilters={clearFilters}
+      />
     ),
-    [queryText, submitSearch],
+    [
+      queryText,
+      submitSearch,
+      filtersOpen,
+      filtersUi,
+      activeFilterCount,
+      applyFilters,
+      clearFilters,
+    ],
   );
 
   if (loading && items.length === 0 && !error) {
@@ -270,6 +333,15 @@ const SearchResultsScreen: React.FC<Props> = () => {
         }
         keyboardShouldPersistTaps="handled"
       />
+
+      <SearchFiltersModal
+        visible={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        value={filtersUi}
+        onChange={setFiltersUi}
+        onApply={applyFilters}
+        onClear={clearFilters}
+      />
     </SafeAreaView>
   );
 };
@@ -304,38 +376,6 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
     fontWeight: '600',
-  },
-  searchBarWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    marginTop: 4,
-    paddingHorizontal: 4,
-    backgroundColor: '#F1F3F5',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(18,42,71,0.08)',
-  },
-  searchIcon: {
-    marginLeft: 12,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    paddingHorizontal: 8,
-    fontSize: 16,
-    color: NAVY,
-    fontWeight: '500',
-  },
-  goBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginRight: 6,
-  },
-  goBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: NAVY,
   },
   listContent: {
     paddingHorizontal: 20,

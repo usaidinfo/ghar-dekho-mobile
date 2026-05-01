@@ -32,11 +32,20 @@ export const httpClient = axios.create({
 });
 
 httpClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[api] request', {
+      method: config.method,
+      baseURL: config.baseURL,
+      url: config.url,
+      params: config.params,
+    });
+  }
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // Let axios set multipart boundary for RN FormData (default JSON Content-Type breaks uploads)
+  // Prefer `postFormDataWithAuth` for RN FormData — axios 1.x can still mis-handle POST FormData (ERR_NETWORK).
   if (config.data && typeof FormData !== 'undefined' && config.data instanceof FormData) {
     const h = config.headers;
     if (h instanceof AxiosHeaders) {
@@ -82,8 +91,28 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 httpClient.interceptors.response.use(
-  res => res,
+  res => {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[api] response', {
+        status: res.status,
+        url: res.config?.url,
+      });
+    }
+    return res;
+  },
   async (error: AxiosError) => {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[api] error', {
+        message: error.message,
+        code: (error as any)?.code,
+        status: error.response?.status,
+        url: error.config?.url,
+        baseURL: (error.config as any)?.baseURL,
+        data: error.response?.data,
+      });
+    }
     const original = error.config;
     if (!original || original._retry) {
       return Promise.reject(error);

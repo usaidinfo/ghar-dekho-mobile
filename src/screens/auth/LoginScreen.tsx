@@ -4,16 +4,14 @@ import {
   Text,
   TouchableOpacity,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
   Image,
-  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
-import { Input } from '../../components/ui/Input';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { TextInput as PaperInput } from 'react-native-paper';
 import { Button } from '../../components/ui/Button';
 import type { MainStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../stores/auth.store';
@@ -105,21 +103,17 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: 'center',
-            paddingHorizontal: 32,
-            paddingVertical: 40,
-          }}
-        >
+      <View style={{ flex: 1, paddingHorizontal: 32, paddingVertical: 40, paddingBottom: 80 }}>
           {navigation.canGoBack() && (
-            <TouchableOpacity onPress={() => navigation.goBack()} className="mb-6 self-start">
-              <Text className="text-primary font-bold text-base">← Back</Text>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+              className="mb-6 self-start flex-row items-center"
+            >
+              <View className="w-9 h-9 rounded-full bg-surface-input-alt items-center justify-center mr-2">
+                <Icon name="arrow-back" size={20} color="#122A47" />
+              </View>
+              <Text className="text-primary font-semibold text-sm">Back</Text>
             </TouchableOpacity>
           )}
 
@@ -136,25 +130,31 @@ export default function LoginScreen() {
               rules={{ required: 'Email or phone is required' }}
               name="identifier"
               render={({ field: { onChange, onBlur, value } }) => (
-                <Input
+                <PaperInput
+                  mode="outlined"
                   label="Email or phone number"
-                  placeholder="Enter your email or phone"
-                  leftIcon="person"
-                  inputBg="surface-input-alt"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
                   value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
                   autoCapitalize="none"
-                  keyboardType="default"
-                  error={errors.identifier?.message as string}
+                  keyboardType={value?.includes('@') ? 'email-address' : 'phone-pad'}
+                  outlineStyle={{ borderRadius: 999 }}
+                  left={<PaperInput.Icon icon="account" />}
+                  error={Boolean(errors.identifier?.message)}
+                  style={{ backgroundColor: '#EEF0F4' }}
                 />
               )}
             />
+            {errors.identifier?.message ? (
+              <Text style={{ color: '#EF4444', fontSize: 12, marginLeft: 4, marginTop: -6 }}>
+                {errors.identifier.message as string}
+              </Text>
+            ) : null}
 
             {!isOtpMode ? (
               <View className="mt-5">
-                <View className="flex-row justify-end px-1 -mb-6 z-10 relative">
-                  <TouchableOpacity>
+                <View className="flex-row justify-end px-1">
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => Toast.show({ type: 'info', text1: 'Password reset coming soon' })}>
                     <Text className="text-secondary text-sm font-bold">Forgot Password?</Text>
                   </TouchableOpacity>
                 </View>
@@ -163,20 +163,25 @@ export default function LoginScreen() {
                   rules={{ required: 'Password is required' }}
                   name="password"
                   render={({ field: { onChange, onBlur, value } }) => (
-                    <Input
+                    <PaperInput
+                      mode="outlined"
                       label="Password"
-                      inputBg="surface-input-alt"
-                      placeholder="••••••••"
-                      leftIcon="lock"
-                      secureTextEntry
-                      onBlur={onBlur}
-                      onChangeText={onChange}
                       value={value}
-                      error={errors.password?.message as string}
-                      className="tracking-widest"
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      secureTextEntry
+                      outlineStyle={{ borderRadius: 999 }}
+                      left={<PaperInput.Icon icon="lock" />}
+                      error={Boolean(errors.password?.message)}
+                      style={{ backgroundColor: '#EEF0F4' }}
                     />
                   )}
                 />
+                {errors.password?.message ? (
+                  <Text style={{ color: '#EF4444', fontSize: 12, marginLeft: 4, marginTop: 6 }}>
+                    {errors.password.message as string}
+                  </Text>
+                ) : null}
               </View>
             ) : (
               <View className="mt-2 space-y-4">
@@ -196,19 +201,25 @@ export default function LoginScreen() {
                   }}
                   name="otp"
                   render={({ field: { onChange, onBlur, value } }) => (
-                    <Input
+                    <PaperInput
+                      mode="outlined"
                       label="Verification code"
-                      inputBg="surface-input-alt"
-                      placeholder="6-digit OTP"
-                      leftIcon="verified-user"
-                      keyboardType="number-pad"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
                       value={value}
-                      error={errors.otp?.message as string}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      keyboardType="number-pad"
+                      outlineStyle={{ borderRadius: 999 }}
+                      left={<PaperInput.Icon icon="shield-check" />}
+                      error={Boolean(errors.otp?.message)}
+                      style={{ backgroundColor: '#EEF0F4' }}
                     />
                   )}
                 />
+                {errors.otp?.message ? (
+                  <Text style={{ color: '#EF4444', fontSize: 12, marginLeft: 4, marginTop: 6 }}>
+                    {errors.otp.message as string}
+                  </Text>
+                ) : null}
               </View>
             )}
           </View>
@@ -264,8 +275,7 @@ export default function LoginScreen() {
               </Text>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

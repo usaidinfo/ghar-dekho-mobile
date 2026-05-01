@@ -25,6 +25,9 @@ export interface ListPropertyFormValues {
   bhk: ListingBhk;
   builtUpSqFt: string;
   carpetSqFt: string;
+  /** Plot-specific area input */
+  plotArea: string;
+  plotAreaUnit: 'SQFT' | 'GAJ';
   propertyAge: ListingPropertyAge;
   floor: string;
   totalFloors: string;

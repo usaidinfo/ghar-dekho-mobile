@@ -1,6 +1,7 @@
 declare module 'react-native-config' {
   export interface NativeConfig {
     API_BASE_URL?: string;
+    CHAT_SOCKET_URL?: string;
   }
   const Config: NativeConfig;
   export default Config;

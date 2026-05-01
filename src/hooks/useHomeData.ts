@@ -97,6 +97,10 @@ export function useHomeData(selectedCategory: PropertyCategory): UseHomeDataResu
           listingsResult.status === 'fulfilled' ? listingsResult.value.data ?? [] : [];
 
         if (listingsResult.status === 'rejected') {
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[home] listings rejected', listingsResult.reason);
+          }
           setError('Could not load listings. Pull to refresh.');
         }
 

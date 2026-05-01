@@ -176,6 +176,10 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
           });
         }
       } catch (e) {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.error('[PostProperty] persist failed', e);
+        }
         Toast.show({
           type: 'error',
           text1: publish ? 'Could not post' : 'Could not save draft',
@@ -312,7 +316,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: 16,
     maxWidth: 576,
     width: '100%',
@@ -321,22 +325,24 @@ const styles = StyleSheet.create({
   draftBtn: {
     flex: 1,
     minWidth: 0,
-    minHeight: 52,
-    borderRadius: 999,
+    minHeight: 56,
+    maxHeight: 64,
+    borderRadius: 16,
     backgroundColor: '#E9ECEF',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryBtn: {
     flex: 1,
     minWidth: 0,
-    minHeight: 52,
-    borderRadius: 999,
+    minHeight: 56,
+    maxHeight: 64,
+    borderRadius: 16,
     backgroundColor: '#122A47',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

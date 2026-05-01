@@ -25,6 +25,7 @@ import FeaturePoster from '../../components/home/FeaturePoster';
 import ProjectCarousel from '../../components/home/ProjectCarousel';
 import NearbySection from '../../components/home/NearbySection';
 import TopListingsSection from '../../components/home/TopListingsSection';
+import HomeScreenSkeleton from '../../components/home/skeletons/HomeScreenSkeleton';
 
 import { useHomeData } from '../../hooks/useHomeData';
 import type { PropertyCategory, Project, NearbyProperty, TopListing } from '../../types/property.types';
@@ -91,10 +92,7 @@ const HomeScreen: React.FC = () => {
       <HomeHeader onSubmitSearch={onSubmitHeaderSearch} />
 
       {loading && !refreshing ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#122A47" />
-          <Text style={styles.loadingText}>Loading homes…</Text>
-        </View>
+        <HomeScreenSkeleton />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}

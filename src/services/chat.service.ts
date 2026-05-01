@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { httpClient } from '../api/httpClient';
+import { postFormDataWithAuth } from '../api/multipartPost';
 import type { ApiPaginated, ApiSuccess } from '../types/api.types';
 import type { ChatMessage, ChatSessionRow } from '../types/chat.api.types';
 import { getApiErrorMessage } from './auth.service';
@@ -27,11 +28,10 @@ export async function sendChatMessageMultipart(
   form: FormData,
 ): Promise<ApiSuccess<ChatMessage>> {
   try {
-    const { data } = await httpClient.post<ApiSuccess<ChatMessage>>(
+    return await postFormDataWithAuth<ApiSuccess<ChatMessage>>(
       `/api/chat/sessions/${sessionId}/messages`,
       form,
     );
-    return data;
   } catch (e) {
     if (axios.isAxiosError(e)) {
       throw new Error(getApiErrorMessage(e));

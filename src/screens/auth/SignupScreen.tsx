@@ -4,17 +4,14 @@ import {
   Text,
   TouchableOpacity,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
-  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { Input } from '../../components/ui/Input';
+import { TextInput as PaperInput } from 'react-native-paper';
 import { Button } from '../../components/ui/Button';
 import type { MainStackParamList } from '../../navigation/types';
 import { useAuthStore, mapUiProfileType, splitFullName } from '../../stores/auth.store';
@@ -82,8 +79,9 @@ export default function SignupScreen() {
     confirmPassword: string;
     otp: string;
   }) => {
-    const email = data.email.trim();
-    const phone = normalizePhoneInput(data.phone.trim());
+    const email = data.email.trim().toLowerCase();
+    const phoneRaw = data.phone.trim();
+    const phone = phoneRaw ? normalizePhoneInput(phoneRaw) : '';
     const { firstName, lastName } = splitFullName(data.fullName);
     if (!firstName) {
       Toast.show({ type: 'error', text1: 'Enter your name' });
@@ -96,7 +94,8 @@ export default function SignupScreen() {
 
     try {
       const payload = {
-        ...(email ? { email } : { phone }),
+        ...(email ? { email } : {}),
+        ...(phone ? { phone } : {}),
         password: data.password,
         firstName,
         lastName: lastName || firstName,
@@ -113,22 +112,27 @@ export default function SignupScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'flex-start',
+          paddingHorizontal: 32,
+          paddingVertical: 40,
+          paddingBottom: 100,
+        }}
       >
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: 'center',
-            paddingHorizontal: 32,
-            paddingVertical: 40,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
           {navigation.canGoBack() && (
-            <TouchableOpacity onPress={() => navigation.goBack()} className="mb-6 self-start">
-              <Text className="text-primary font-bold text-base">← Back</Text>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+              className="mb-6 self-start flex-row items-center"
+            >
+              <View className="w-9 h-9 rounded-full bg-surface-input-alt items-center justify-center mr-2">
+                <Icon name="arrow-back" size={20} color="#122A47" />
+              </View>
+              <Text className="text-primary font-semibold text-sm">Back</Text>
             </TouchableOpacity>
           )}
 
@@ -183,15 +187,16 @@ export default function SignupScreen() {
               rules={{ required: 'Full Name is required' }}
               name="fullName"
               render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  className="mt-0"
-                  inputBg="surface-input-alt"
-                  placeholder="Full Name"
-                  leftIcon="person"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
+                <PaperInput
+                  mode="outlined"
+                  label="Full Name"
                   value={value}
-                  error={errors.fullName?.message as string}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  outlineStyle={{ borderRadius: 999 }}
+                  left={<PaperInput.Icon icon="account" />}
+                  error={Boolean(errors.fullName?.message)}
+                  style={{ backgroundColor: '#EEF0F4' }}
                 />
               )}
             />
@@ -204,17 +209,18 @@ export default function SignupScreen() {
               }}
               name="email"
               render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  containerStyle={{ marginTop: 20 }}
-                  inputBg="surface-input-alt"
-                  placeholder="Email Address"
-                  leftIcon="mail"
+                <PaperInput
+                  mode="outlined"
+                  label="Email Address"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  error={errors.email?.message as string}
+                  outlineStyle={{ borderRadius: 999 }}
+                  left={<PaperInput.Icon icon="email" />}
+                  error={Boolean(errors.email?.message)}
+                  style={{ backgroundColor: '#EEF0F4', marginTop: 16 }}
                 />
               )}
             />
@@ -224,30 +230,18 @@ export default function SignupScreen() {
               rules={{ required: 'Phone is required' }}
               name="phone"
               render={({ field: { onChange, onBlur, value } }) => (
-                <View className="mt-5">
-                  <View
-                    className={`w-full h-14 bg-surface-input-alt rounded-full flex-row items-center relative ${errors.phone ? 'border border-red-500 bg-red-50' : ''}`}
-                  >
-                    <View className="absolute left-4 z-10 w-6 items-center">
-                      <Icon name="phone-iphone" size={22} color="#777779" />
-                    </View>
-                    <Text className="pl-12 pr-3 font-bold text-dark border-r border-outline">+91</Text>
-                    <TextInput
-                      className="flex-1 h-14 px-3 text-dark font-medium placeholder:text-neutral"
-                      placeholder="Phone Number"
-                      placeholderTextColor="#777779"
-                      keyboardType="phone-pad"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                    />
-                  </View>
-                  {errors.phone && (
-                    <Text className="text-red-500 text-xs mt-1.5 ml-1 font-medium tracking-wide">
-                      {errors.phone.message as string}
-                    </Text>
-                  )}
-                </View>
+                <PaperInput
+                  mode="outlined"
+                  label="Phone Number"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  keyboardType="phone-pad"
+                  outlineStyle={{ borderRadius: 999 }}
+                  left={<PaperInput.Icon icon="phone" />}
+                  error={Boolean(errors.phone?.message)}
+                  style={{ backgroundColor: '#EEF0F4', marginTop: 16 }}
+                />
               )}
             />
 
@@ -269,16 +263,17 @@ export default function SignupScreen() {
               rules={{ required: 'OTP is required', minLength: { value: 4, message: 'Enter the code' } }}
               name="otp"
               render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  containerStyle={{ marginTop: 16 }}
-                  inputBg="surface-input-alt"
-                  placeholder="Verification code"
-                  leftIcon="verified-user"
-                  keyboardType="number-pad"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
+                <PaperInput
+                  mode="outlined"
+                  label="Verification code"
                   value={value}
-                  error={errors.otp?.message as string}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  keyboardType="number-pad"
+                  outlineStyle={{ borderRadius: 999 }}
+                  left={<PaperInput.Icon icon="shield-check" />}
+                  error={Boolean(errors.otp?.message)}
+                  style={{ backgroundColor: '#EEF0F4', marginTop: 16 }}
                 />
               )}
             />
@@ -291,16 +286,17 @@ export default function SignupScreen() {
               }}
               name="password"
               render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  containerStyle={{ marginTop: 20 }}
-                  inputBg="surface-input-alt"
-                  placeholder="Password"
-                  leftIcon="lock"
-                  secureTextEntry
-                  onBlur={onBlur}
-                  onChangeText={onChange}
+                <PaperInput
+                  mode="outlined"
+                  label="Password"
                   value={value}
-                  error={errors.password?.message as string}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry
+                  outlineStyle={{ borderRadius: 999 }}
+                  left={<PaperInput.Icon icon="lock" />}
+                  error={Boolean(errors.password?.message)}
+                  style={{ backgroundColor: '#EEF0F4', marginTop: 16 }}
                 />
               )}
             />
@@ -313,16 +309,17 @@ export default function SignupScreen() {
               }}
               name="confirmPassword"
               render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  containerStyle={{ marginTop: 20 }}
-                  inputBg="surface-input-alt"
-                  placeholder="Confirm Password"
-                  leftIcon="verified-user"
-                  secureTextEntry
-                  onBlur={onBlur}
-                  onChangeText={onChange}
+                <PaperInput
+                  mode="outlined"
+                  label="Confirm Password"
                   value={value}
-                  error={errors.confirmPassword?.message as string}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry
+                  outlineStyle={{ borderRadius: 999 }}
+                  left={<PaperInput.Icon icon="lock" />}
+                  error={Boolean(errors.confirmPassword?.message)}
+                  style={{ backgroundColor: '#EEF0F4', marginTop: 16 }}
                 />
               )}
             />
@@ -343,8 +340,7 @@ export default function SignupScreen() {
               <Text className="text-secondary font-bold text-base">Log In</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   );
 }

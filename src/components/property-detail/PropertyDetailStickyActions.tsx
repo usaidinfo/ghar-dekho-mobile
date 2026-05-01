@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const PRIMARY = '#122A47';
@@ -14,42 +14,54 @@ const PropertyDetailStickyActions: React.FC<PropertyDetailStickyActionsProps> = 
   bottomInset,
   onChat,
   onSchedule,
-}) => (
-  <View
-    style={[
-      styles.bar,
-      {
-        paddingBottom: Math.max(bottomInset, 12) + 12,
-        ...Platform.select({
-          ios: {
-            shadowColor: '#000',
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: -4 },
-          },
-          android: { elevation: 16 },
-        }),
-      },
-    ]}
-  >
-    <View style={styles.row}>
-      <Pressable
-        onPress={onChat}
-        style={({ pressed }) => [styles.btnOutline, pressed && styles.pressed]}
-      >
-        <Icon name="chat-outline" size={20} color={PRIMARY} />
-        <Text style={styles.btnOutlineText}>In-App Chat</Text>
-      </Pressable>
-      <Pressable
-        onPress={onSchedule}
-        style={({ pressed }) => [styles.btnSolid, pressed && styles.pressed]}
-      >
-        <Icon name="calendar-month" size={20} color="#FFFFFF" />
-        <Text style={styles.btnSolidText}>Schedule Visit</Text>
-      </Pressable>
+}) => {
+  const { width } = useWindowDimensions();
+  const padH = width < 360 ? 16 : 24;
+  const gap = width < 360 ? 10 : 16;
+
+  return (
+    <View
+      style={[
+        styles.bar,
+        {
+          paddingHorizontal: padH,
+          paddingBottom: Math.max(bottomInset, 10) + 14,
+          gap,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOpacity: 0.06,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: -4 },
+            },
+            android: { elevation: 18 },
+          }),
+        },
+      ]}
+    >
+      <View style={[styles.row, { gap }]}>
+        <Pressable
+          onPress={onChat}
+          style={({ pressed }) => [styles.btnOutline, pressed && styles.pressed]}
+        >
+          <Icon name="chat-outline" size={20} color={PRIMARY} />
+          <Text style={styles.btnOutlineText} numberOfLines={1}>
+            In-App Chat
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onSchedule}
+          style={({ pressed }) => [styles.btnSolid, pressed && styles.pressed]}
+        >
+          <Icon name="calendar-month" size={20} color="#FFFFFF" />
+          <Text style={styles.btnSolidText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+            Schedule Private Visit
+          </Text>
+        </Pressable>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   bar: {
@@ -59,55 +71,61 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 50,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(226, 232, 240, 0.6)',
-    backgroundColor: 'rgba(248, 249, 250, 0.97)',
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    borderTopColor: 'rgba(226, 232, 240, 0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingTop: 14,
   },
   row: {
     flexDirection: 'row',
-    gap: 16,
+    alignItems: 'stretch',
   },
   btnOutline: {
     flex: 1,
-    height: 64,
+    minHeight: 56,
+    maxHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 999,
+    paddingHorizontal: 8,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: PRIMARY,
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
   },
   btnSolid: {
-    flex: 1.5,
-    height: 64,
+    flex: 1.55,
+    minHeight: 56,
+    maxHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 999,
+    paddingHorizontal: 10,
+    borderRadius: 16,
     backgroundColor: PRIMARY,
     shadowColor: PRIMARY,
     shadowOpacity: 0.28,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
   },
   btnOutlineText: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
     color: PRIMARY,
+    textAlign: 'center',
   },
   btnSolidText: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 2,
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.92,

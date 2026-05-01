@@ -27,7 +27,7 @@ const ProfileLogoutSection: React.FC<ProfileLogoutSectionProps> = ({
       ) : (
         <>
           <Icon name="logout" size={22} color="#ba1a1a" />
-          <Text className="text-sm font-extrabold uppercase text-error" style={signedInTextStyles.logoutCaps}>
+          <Text className="text-sm font-extrabold uppercase text-error pl-1" style={signedInTextStyles.logoutCaps}>
             Logout account
           </Text>
         </>

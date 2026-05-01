@@ -7,6 +7,7 @@ import {
   Pressable,
   Linking,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -17,13 +18,19 @@ import PropertyAiInsightsCard from '../../components/property-detail/PropertyAiI
 import PropertyAmenitiesSection from '../../components/property-detail/PropertyAmenitiesSection';
 import PropertyLocationLegalSection from '../../components/property-detail/PropertyLocationLegalSection';
 import PropertyDetailStickyActions from '../../components/property-detail/PropertyDetailStickyActions';
+import ScheduleVisitSheet, { combineLocalDateTimeISO } from '../../components/visits/ScheduleVisitSheet';
+import PropertyDetailSkeleton from '../../components/home/skeletons/PropertyDetailSkeleton';
 import { fetchPropertyById } from '../../services/property.service';
 import { createOrGetSession } from '../../services/chat.service';
+import { scheduleMeeting } from '../../services/meeting.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { MainStackParamList } from '../../navigation/types';
 import type { PropertyDetail, VirtualTourItem } from '../../types/property-detail.types';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'PropertyDetail'>;
+
+const SURFACE = '#FDFDFD';
+const PRIMARY = '#122A47';
 
 function normalizeDetail(raw: unknown): PropertyDetail {
   const p = raw as PropertyDetail;
@@ -37,14 +44,25 @@ function normalizeDetail(raw: unknown): PropertyDetail {
   };
 }
 
+function overlapAmount(width: number, height: number): number {
+  const base = width < 360 ? -36 : width < 420 ? -44 : -52;
+  return height < 640 ? Math.max(base, -32) : base;
+}
+
 const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const { propertyId } = route.params;
   const myId = useAuthStore(s => s.user?.id);
 
   const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [visitOpen, setVisitOpen] = useState(false);
+
+  const horizontalPad = width < 360 ? 16 : width < 400 ? 20 : 24;
+  const overlap = overlapAmount(width, height);
+  const footerPad = Math.max(insets.bottom, 12) + (width < 360 ? 108 : 118);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,8 +82,6 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const footerPad = Math.max(insets.bottom, 16) + 96;
 
   const tour360 = useMemo(
     () =>
@@ -142,16 +158,20 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const onSchedule = () => {
-    Toast.show({ type: 'info', text1: 'Visit scheduling opens from chat soon' });
+    if (!property?.owner?.id) {
+      Toast.show({ type: 'info', text1: 'Owner information unavailable' });
+      return;
+    }
+    if (!myId) {
+      Toast.show({ type: 'info', text1: 'Please sign in to schedule a visit' });
+      navigation.navigate('Login');
+      return;
+    }
+    setVisitOpen(true);
   };
 
   if (loading && !property) {
-    return (
-      <SafeAreaView style={styles.centered} edges={['top', 'bottom']}>
-        <ActivityIndicator size="large" color="#122A47" />
-        <Text style={styles.loadingHint}>Loading property…</Text>
-      </SafeAreaView>
-    );
+    return <PropertyDetailSkeleton />;
   }
 
   if (error && !property) {
@@ -186,16 +206,18 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           onVideoTour={openVideo}
         />
 
-        <View style={[styles.overlapMain, { marginTop: OVERLAP }]}>
+        <View style={[styles.overlapMain, { marginTop: overlap, paddingHorizontal: horizontalPad }]}>
           <PropertyCoreInfoCard
             price={Number(p.price)}
             title={p.title}
             locality={p.locality}
             city={p.city}
             isVerified={p.isVerified}
+            propertyType={p.propertyType}
             builtUpArea={p.builtUpArea != null ? Number(p.builtUpArea) : null}
             carpetArea={p.carpetArea != null ? Number(p.carpetArea) : null}
             superBuiltUpArea={p.superBuiltUpArea != null ? Number(p.superBuiltUpArea) : null}
+            plotArea={p.plotArea != null ? Number(p.plotArea) : null}
             furnishing={p.furnishing}
             ageOfProperty={p.ageOfProperty != null ? Number(p.ageOfProperty) : null}
             facing={p.facing}
@@ -223,39 +245,73 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             nearbyEssentials={p.nearbyEssentials}
           />
 
-          <View style={{ height: 24 }} />
+          <View style={{ height: width < 360 ? 16 : 24 }} />
         </View>
       </ScrollView>
 
       <PropertyDetailStickyActions bottomInset={insets.bottom} onChat={onChat} onSchedule={onSchedule} />
+
+      <ScheduleVisitSheet
+        visible={visitOpen}
+        onClose={() => setVisitOpen(false)}
+        onConfirm={async ({ dateStr, slot, notes }) => {
+          if (!property?.owner?.id) throw new Error('Owner information unavailable');
+          const scheduledAt = combineLocalDateTimeISO(dateStr, slot.hours24, slot.minutes);
+          await scheduleMeeting({
+            propertyId: property.id,
+            ownerId: property.owner.id,
+            scheduledAt,
+            duration: 30,
+            meetingType: 'IN_PERSON',
+            notes: notes || undefined,
+          });
+
+          const d = new Date(scheduledAt);
+          const dateLabel = d.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric',
+          });
+
+          const img0 = property.images?.[0];
+          const thumb = img0?.thumbnailUrl || img0?.imageUrl;
+          navigation.navigate('VisitScheduled', {
+            propertyId: property.id,
+            propertyTitle: property.title,
+            propertyThumb: thumb ?? null,
+            isVerified: property.isVerified,
+            dateLabel,
+            timeLabel: slot.label,
+            typeLabel: 'In-person Visit',
+          });
+        }}
+      />
     </View>
   );
 };
 
-const OVERLAP = -40;
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: SURFACE,
   },
   scrollContent: {
     flexGrow: 1,
   },
   overlapMain: {
     zIndex: 10,
-    paddingHorizontal: 24,
   },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: SURFACE,
   },
   loadingHint: {
     marginTop: 16,
     fontSize: 14,
-    color: '#4A5568',
+    color: '#64748B',
   },
   px8: {
     paddingHorizontal: 32,
@@ -264,11 +320,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     textAlign: 'center',
     fontSize: 16,
-    color: '#122A47',
+    color: PRIMARY,
   },
   retryBtn: {
     borderRadius: 999,
-    backgroundColor: '#122A47',
+    backgroundColor: PRIMARY,
     paddingHorizontal: 32,
     paddingVertical: 12,
   },

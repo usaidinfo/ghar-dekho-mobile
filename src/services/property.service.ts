@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { httpClient } from '../api/httpClient';
+import { postFormDataWithAuth } from '../api/multipartPost';
 import type { ApiPaginated, ApiSuccess } from '../types/api.types';
 import type { CreatePropertyPayload, CreatePropertyResponse } from '../types/create-property.api.types';
 import type { PropertyDetail } from '../types/property-detail.types';
@@ -10,6 +11,7 @@ import type {
   PropertyListItem,
 } from '../types/home.api.types';
 
+import { API_BASE_URL } from '../config/env';
 import { getApiErrorMessage } from './auth.service';
 
 /** Query params aligned with GET /api/properties and /api/properties/search */
@@ -119,6 +121,10 @@ export async function createProperty(payload: CreatePropertyPayload): Promise<st
     return readNewPropertyId(data.data);
   } catch (e) {
     if (axios.isAxiosError(e)) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.error('[createProperty]', e.response?.status, e.response?.data, e.message);
+      }
       throw new Error(getApiErrorMessage(e));
     }
     throw e instanceof Error ? e : new Error('Could not create property');
@@ -136,9 +142,15 @@ function guessImageMimeFromName(name: string): string {
 }
 
 function appendFormValue(form: FormData, key: string, value: unknown) {
-  if (value === undefined) return;
-  if (value === null) return;
-  // RN FormData is string-based for fields
+  if (value === undefined || value === null) return;
+  if (Array.isArray(value)) {
+    value.forEach(item => {
+      if (item === undefined || item === null) return;
+      form.append(key, typeof item === 'string' ? item : String(item));
+    });
+    return;
+  }
+  // RN FormData is string-based for scalar fields
   form.append(key, typeof value === 'string' ? value : String(value));
 }
 
@@ -166,10 +178,10 @@ export async function createPropertyMultipart(
   }
 
   try {
-    const { data } = await httpClient.post<ApiSuccess<CreatePropertyResponse | PropertyListItem>>(
+    const data = await postFormDataWithAuth<ApiSuccess<CreatePropertyResponse | PropertyListItem>>(
       '/api/properties',
       form,
-      { timeout: 120_000 },
+      120_000,
     );
     if (!data.success || !data.data) {
       throw new Error((data as { message?: string }).message || 'Could not create property');
@@ -177,7 +189,22 @@ export async function createPropertyMultipart(
     return readNewPropertyId(data.data);
   } catch (e) {
     if (axios.isAxiosError(e)) {
+      if (__DEV__) {
+        const path = '/api/properties';
+        const fullUrl = `${API_BASE_URL.replace(/\/$/, '')}${path}`;
+        // eslint-disable-next-line no-console
+        console.error('[createPropertyMultipart]', {
+          message: e.message,
+          code: e.code,
+          status: e.response?.status,
+          data: e.response?.data,
+          url: fullUrl,
+        });
+      }
       throw new Error(getApiErrorMessage(e));
+    }
+    if (e instanceof Error && (e.name === 'AbortError' || e.message === 'Aborted')) {
+      throw new Error(`Request timed out. Check that the API is reachable at ${API_BASE_URL}.`);
     }
     throw e instanceof Error ? e : new Error('Could not create property');
   }
@@ -201,10 +228,10 @@ export async function uploadPropertyListingImages(propertyId: string, orderedLoc
   }
 
   try {
-    const { data } = await httpClient.post<ApiSuccess<unknown>>(
+    const data = await postFormDataWithAuth<ApiSuccess<unknown>>(
       `/api/properties/${propertyId}/images`,
       form,
-      { timeout: 120_000 },
+      120_000,
     );
     if (!data.success) {
       throw new Error((data as { message?: string }).message || 'Image upload failed');
@@ -212,6 +239,9 @@ export async function uploadPropertyListingImages(propertyId: string, orderedLoc
   } catch (e) {
     if (axios.isAxiosError(e)) {
       throw new Error(getApiErrorMessage(e));
+    }
+    if (e instanceof Error && (e.name === 'AbortError' || e.message === 'Aborted')) {
+      throw new Error(`Image upload timed out. Check ${API_BASE_URL}.`);
     }
     throw e instanceof Error ? e : new Error('Image upload failed');
   }

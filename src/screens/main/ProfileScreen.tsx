@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ScrollView, Linking, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -16,11 +16,14 @@ import ProfileStatsSection from '../../components/profile/signed-in/ProfileStats
 import ProfileAgentCard from '../../components/profile/signed-in/ProfileAgentCard';
 import ProfileSettingsSection from '../../components/profile/signed-in/ProfileSettingsSection';
 import ProfileLogoutSection from '../../components/profile/signed-in/ProfileLogoutSection';
+import ProfileScreenSkeleton from '../../components/home/skeletons/ProfileScreenSkeleton';
 
 import { useAuthStore } from '../../stores/auth.store';
 import type { BottomTabParamList, MainStackParamList } from '../../navigation/types';
 import type { ProfileType } from '../../types/auth.types';
 import appPackage from '../../../package.json';
+import { fetchWishlist } from '../../services/wishlist.service';
+import { fetchMyListings } from '../../services/property.service';
 
 type ProfileNav = CompositeNavigationProp<
   BottomTabNavigationProp<BottomTabParamList, 'Profile'>,
@@ -43,10 +46,13 @@ const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const user = useAuthStore(s => s.user);
   const accessToken = useAuthStore(s => s.accessToken);
+  const hasHydrated = useAuthStore(s => s.hasHydrated);
   const logout = useAuthStore(s => s.logout);
   const [loggingOut, setLoggingOut] = React.useState(false);
+  const [wishlistCount, setWishlistCount] = React.useState<number | null>(null);
+  const [listingsCount, setListingsCount] = React.useState<number | null>(null);
 
-  const isSignedIn = Boolean(accessToken && user);
+  const isSignedIn = Boolean(hasHydrated && accessToken && user);
 
   const displayName = user?.profile
     ? [user.profile.firstName, user.profile.lastName].filter(Boolean).join(' ').trim()
@@ -66,6 +72,50 @@ const ProfileScreen: React.FC = () => {
   };
 
   const tabBarPad = Math.max(insets.bottom, 14) + 72;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!hasHydrated || !isSignedIn) return () => undefined;
+      let cancelled = false;
+
+      // Show placeholder while loading (—)
+      setWishlistCount(null);
+      setListingsCount(null);
+
+      (async () => {
+        const [wRes, lRes] = await Promise.allSettled([
+          fetchWishlist({ page: 1, limit: 1 }),
+          fetchMyListings({ page: 1, limit: 1 }),
+        ]);
+
+        if (cancelled) return;
+
+        if (wRes.status === 'fulfilled') {
+          setWishlistCount(wRes.value?.meta?.total ?? 0);
+        } else {
+          setWishlistCount(0);
+        }
+
+        if (lRes.status === 'fulfilled') {
+          setListingsCount(lRes.value?.meta?.total ?? 0);
+        } else {
+          setListingsCount(0);
+        }
+      })().catch(() => {
+        if (cancelled) return;
+        setWishlistCount(0);
+        setListingsCount(0);
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [hasHydrated, isSignedIn]),
+  );
+
+  if (!hasHydrated) {
+    return <ProfileScreenSkeleton />;
+  }
 
   if (!isSignedIn || !user) {
     return (
@@ -113,8 +163,8 @@ const ProfileScreen: React.FC = () => {
         />
 
         <ProfileStatsSection
-          wishlistCount={0}
-          listingsCount={0}
+          wishlistCount={wishlistCount}
+          listingsCount={listingsCount}
           onViewWishlist={() => navigation.navigate('Wishlist')}
           onManageListings={() => navigation.navigate('MyListings')}
         />

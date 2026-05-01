@@ -1,6 +1,7 @@
 import axios, { type AxiosError } from 'axios';
 import { httpClient } from '../api/httpClient';
 import { getAccessToken, getRefreshToken } from '../api/session';
+import { API_BASE_URL } from '../config/env';
 import type { ApiErrorBody, ApiSuccess } from '../types/api.types';
 import type {
   AuthUser,
@@ -18,6 +19,12 @@ export interface AuthResponseData {
 
 export function getApiErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
+    if (!err.response) {
+      if (err.code === 'ECONNABORTED') {
+        return `Request timed out. Check that the API is reachable at ${API_BASE_URL}.`;
+      }
+      return `Cannot reach API at ${API_BASE_URL}. Start the backend on your PC. If the URL uses 127.0.0.1, run npm run reverse-api (or npm run android) with the emulator/USB device connected. On Wi‑Fi‑only phones use your PC LAN IP in .env instead.`;
+    }
     const data = err.response?.data as ApiErrorBody | undefined;
     if (data) {
       const msg = data.message || err.message || 'Request failed';
@@ -52,9 +59,7 @@ export function parseIdentifier(identifier: string): { email?: string; phone?: s
     return { email: trimmed.toLowerCase() };
   }
   const digits = trimmed.replace(/\D/g, '');
-  if (digits.length === 10) {
-    return { phone: `+91${digits}` };
-  }
+  if (digits.length === 10) return { phone: digits };
   if (trimmed.startsWith('+')) {
     return { phone: trimmed };
   }

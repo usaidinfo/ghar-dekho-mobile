@@ -3,8 +3,8 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export interface ProfileStatsSectionProps {
-  wishlistCount: number;
-  listingsCount: number;
+  wishlistCount: number | null;
+  listingsCount: number | null;
   onViewWishlist: () => void;
   onManageListings: () => void;
 }
@@ -14,14 +14,18 @@ const ProfileStatsSection: React.FC<ProfileStatsSectionProps> = ({
   listingsCount,
   onViewWishlist,
   onManageListings,
-}) => (
-  <View className="mt-5 flex-row gap-4">
+}) => {
+  const wishlistLabel = wishlistCount == null ? '—' : String(wishlistCount);
+  const listingsLabel = listingsCount == null ? '—' : String(listingsCount);
+
+  return (
+    <View className="mt-5 flex-row gap-4">
     <View className="relative min-h-[140px] flex-1 overflow-hidden rounded-3xl bg-primary p-6">
       <View className="absolute -bottom-4 -right-4">
         <Icon name="heart" size={120} color="rgba(255,255,255,0.08)" />
       </View>
       <View>
-        <Text className="text-4xl font-bold text-white">{wishlistCount}</Text>
+        <Text className="text-4xl font-bold text-white">{wishlistLabel}</Text>
         <Text className="mt-1 text-sm font-semibold text-white/80">Wishlist</Text>
       </View>
       <TouchableOpacity
@@ -37,7 +41,7 @@ const ProfileStatsSection: React.FC<ProfileStatsSectionProps> = ({
         <Icon name="domain" size={120} color="rgba(0,21,46,0.06)" />
       </View>
       <View>
-        <Text className="text-4xl font-bold text-primary-deep">{listingsCount}</Text>
+        <Text className="text-4xl font-bold text-primary-deep">{listingsLabel}</Text>
         <Text className="mt-1 text-sm font-semibold text-variant-fg">My listings</Text>
       </View>
       <TouchableOpacity
@@ -47,7 +51,8 @@ const ProfileStatsSection: React.FC<ProfileStatsSectionProps> = ({
         <Text className="text-xs font-bold text-primary-deep">Manage</Text>
       </TouchableOpacity>
     </View>
-  </View>
-);
+    </View>
+  );
+};
 
 export default ProfileStatsSection;

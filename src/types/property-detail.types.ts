@@ -86,6 +86,7 @@ export interface PropertyDetail {
   carpetArea?: number | null;
   builtUpArea?: number | null;
   superBuiltUpArea?: number | null;
+  plotArea?: number | null;
   city: string;
   locality: string;
   address?: string | null;

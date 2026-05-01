@@ -140,6 +140,8 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     const onMsg = (msg: ChatMessage) => {
+      // eslint-disable-next-line no-console
+      console.log('[chat-thread] incoming chat:message', { sessionId, msgSessionId: msg.sessionId, id: msg.id });
       if (msg.sessionId !== sessionId) return;
       mergeMessage(msg);
     };
@@ -158,7 +160,12 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const joinAndRead = () => {
-      sock?.emit('chat:join', sessionId);
+      // eslint-disable-next-line no-console
+      console.log('[chat-thread] joinAndRead', { sessionId, connected: sock?.connected });
+      sock?.emit('chat:join', sessionId, (ack?: { ok?: boolean; error?: string }) => {
+        // eslint-disable-next-line no-console
+        console.log('[chat-thread] join ack', { sessionId, ack });
+      });
       sock?.emit('chat:read', { sessionId });
     };
 
@@ -188,8 +195,19 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
       setSending(true);
       try {
         if (sock?.connected) {
-          sock.emit('chat:message', { sessionId, content: text, messageType: 'TEXT' });
+          // eslint-disable-next-line no-console
+          console.log('[chat-thread] send via socket', { sessionId });
+          sock.emit(
+            'chat:message',
+            { sessionId, content: text, messageType: 'TEXT' },
+            (ack?: { ok?: boolean; error?: string; messageId?: string }) => {
+              // eslint-disable-next-line no-console
+              console.log('[chat-thread] send ack', { sessionId, ack });
+            },
+          );
         } else {
+          // eslint-disable-next-line no-console
+          console.log('[chat-thread] send via REST fallback', { sessionId });
           const res = await sendChatMessageJson(sessionId, { content: text, messageType: 'TEXT' });
           if (res.success && res.data) mergeMessage(res.data);
         }

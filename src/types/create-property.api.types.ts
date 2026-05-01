@@ -24,6 +24,7 @@ export interface CreatePropertyPayload {
   bhk?: number | null;
   builtUpArea?: number | null;
   carpetArea?: number | null;
+  plotArea?: number | null;
   floorNumber?: number | null;
   totalFloors?: number | null;
   ageOfProperty?: number | null;

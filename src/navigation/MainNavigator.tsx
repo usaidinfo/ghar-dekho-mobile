@@ -12,6 +12,8 @@ import WishlistScreen from '../screens/main/WishlistScreen';
 import ChatInboxScreen from '../screens/main/ChatInboxScreen';
 import ChatThreadScreen from '../screens/main/ChatThreadScreen';
 import PostPropertyScreen from '../screens/main/PostPropertyScreen';
+import MyVisitsScreen from '../screens/main/MyVisitsScreen';
+import VisitScheduledScreen from '../screens/main/VisitScheduledScreen';
 import type { MainStackParamList } from './types';
 
 const Placeholder: React.FC<{ label: string }> = ({ label }) => (
@@ -38,6 +40,8 @@ const MainNavigator: React.FC = () => (
     <Stack.Screen name="Login" component={LoginScreen} />
     <Stack.Screen name="Signup" component={SignupScreen} />
     <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} />
+    <Stack.Screen name="MyVisits" component={MyVisitsScreen} />
+    <Stack.Screen name="VisitScheduled" component={VisitScheduledScreen} />
     <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
     <Stack.Screen name="AdvisorAI" component={AdvisorAIScreen} />
     <Stack.Screen name="SearchResults" component={SearchResultsScreen} />

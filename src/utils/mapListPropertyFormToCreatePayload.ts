@@ -8,6 +8,14 @@ function parseDigitsNumber(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function toSqFtFromPlot(values: ListPropertyFormValues): number | null {
+  if (values.propertyKind !== 'Plot') return null;
+  const n = parseDigitsNumber(values.plotArea);
+  if (n == null) return null;
+  // 1 gaj = 1 square yard = 9 sq.ft
+  return values.plotAreaUnit === 'GAJ' ? n * 9 : n;
+}
+
 /** Maps UI listing intent → Prisma `ListingType` (no COMMERCIAL — use category). */
 function listingIntentToApi(listingIntent: ListPropertyFormValues['listingIntent']): string {
   switch (listingIntent) {
@@ -109,6 +117,7 @@ export function mapListPropertyFormToCreatePayload(
   const price = parseDigitsNumber(values.totalPrice) ?? 0;
   const builtUp = parseDigitsNumber(values.builtUpSqFt);
   const carpet = parseDigitsNumber(values.carpetSqFt);
+  const plotAreaSqFt = toSqFtFromPlot(values);
   const floor = parseDigitsNumber(values.floor);
   const totalFloors = parseDigitsNumber(values.totalFloors);
 
@@ -138,6 +147,7 @@ export function mapListPropertyFormToCreatePayload(
     bhk: bhkToNumber(values.bhk),
     builtUpArea: builtUp,
     carpetArea: carpet,
+    plotArea: plotAreaSqFt,
     floorNumber: floor,
     totalFloors,
     ageOfProperty: propertyAgeToYears(values.propertyAge),

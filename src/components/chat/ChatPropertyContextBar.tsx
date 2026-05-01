@@ -50,9 +50,9 @@ const ChatPropertyContextBar: React.FC<ChatPropertyContextBarProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 22,
-    marginBottom: 10,
+    marginHorizontal: 15,
     padding: 10,
+    marginTop: 10,
     borderRadius: 12,
     backgroundColor: '#f5f3f6',
     flexDirection: 'row',

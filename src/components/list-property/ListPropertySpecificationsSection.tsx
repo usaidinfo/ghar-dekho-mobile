@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Controller, type Control } from 'react-hook-form';
+import { Controller, type Control, useWatch } from 'react-hook-form';
 
 import type { ListPropertyFormValues, ListingBhk, ListingPropertyAge } from '../../types/list-property-form.types';
 import ListPropertyStepSection from './ListPropertyStepSection';
@@ -16,9 +16,12 @@ interface ListPropertySpecificationsSectionProps {
 const fieldClass =
   'w-full rounded-full border-0 bg-surface-container-high px-6 py-4 text-sm font-bold text-primary';
 
-const ListPropertySpecificationsSection: React.FC<ListPropertySpecificationsSectionProps> = ({ control }) => (
-  <ListPropertyStepSection title="Specifications">
-    <View style={LP_STACK.section}>
+const ListPropertySpecificationsSection: React.FC<ListPropertySpecificationsSectionProps> = ({ control }) => {
+  const propertyKind = useWatch({ control, name: 'propertyKind' });
+
+  return (
+    <ListPropertyStepSection title="Specifications">
+      <View style={LP_STACK.section}>
       <View>
         <Text className="mb-3 ml-4 text-[10px] font-extrabold uppercase tracking-widest text-brand-teal">
           BHK Selection
@@ -91,6 +94,62 @@ const ListPropertySpecificationsSection: React.FC<ListPropertySpecificationsSect
         </View>
       </View>
 
+      {propertyKind === 'Plot' ? (
+        <View>
+          <Text className="mb-3 ml-4 text-[10px] font-extrabold uppercase tracking-widest text-brand-teal">
+            Plot Area
+          </Text>
+          <View style={LP_STACK.row16}>
+            <View style={[LP_STACK.fieldCol, { flex: 1.2 }]}>
+              <Controller
+                control={control}
+                name="plotArea"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <TextInput
+                    className={fieldClass}
+                    placeholder="100"
+                    placeholderTextColor="#ADB5BD"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    keyboardType="numeric"
+                  />
+                )}
+              />
+            </View>
+            <View style={[LP_STACK.fieldCol, { flex: 1 }]}>
+              <Controller
+                control={control}
+                name="plotAreaUnit"
+                render={({ field: { value, onChange } }) => (
+                  <View style={styles.unitWrap}>
+                    {(['SQFT', 'GAJ'] as const).map(u => {
+                      const selected = value === u;
+                      return (
+                        <TouchableOpacity
+                          key={u}
+                          onPress={() => onChange(u)}
+                          activeOpacity={0.85}
+                          style={[styles.unitBtn, selected && styles.unitBtnSelected]}
+                        >
+                          <Text style={[styles.unitText, selected && styles.unitTextSelected]}>
+                            {u === 'SQFT' ? 'Sq.ft' : 'Gaj'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              />
+            </View>
+          </View>
+
+          <Text className="mt-2 ml-4 text-[11px] font-semibold text-neutral">
+            Plots are commonly measured in gaj (1 gaj = 9 sq.ft).
+          </Text>
+        </View>
+      ) : null}
+
       <View>
         <Text className="mb-3 ml-4 text-[10px] font-extrabold uppercase tracking-widest text-brand-teal">Property Age</Text>
         <Controller
@@ -158,9 +217,10 @@ const ListPropertySpecificationsSection: React.FC<ListPropertySpecificationsSect
           />
         </View>
       </View>
-    </View>
-  </ListPropertyStepSection>
-);
+      </View>
+    </ListPropertyStepSection>
+  );
+};
 
 const bhkSelectedShadow = Platform.select({
   ios: {
@@ -178,6 +238,34 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 4,
     paddingBottom: 4,
+  },
+  unitWrap: {
+    flexDirection: 'row',
+    backgroundColor: '#EEF0F4',
+    borderRadius: 999,
+    padding: 4,
+    height: 56,
+    alignItems: 'center',
+  },
+  unitBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unitBtnSelected: {
+    backgroundColor: '#122A47',
+  },
+  unitText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#122A47',
+    textTransform: 'uppercase',
+  },
+  unitTextSelected: {
+    color: '#FFFFFF',
   },
 });
 

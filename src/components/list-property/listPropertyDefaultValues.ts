@@ -14,6 +14,8 @@ export function getListPropertyDefaultValues(): ListPropertyFormValues {
     bhk: '2',
     builtUpSqFt: '',
     carpetSqFt: '',
+    plotArea: '',
+    plotAreaUnit: 'SQFT',
     propertyAge: 'New Construction',
     floor: '',
     totalFloors: '',

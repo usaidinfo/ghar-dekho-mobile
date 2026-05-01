@@ -1,3 +1,19 @@
+/** Split headline price like "₹1.50" + "Cr" for premium detail layouts */
+export function formatInrPriceParts(price: number): { main: string; suffix: string } | null {
+  if (!Number.isFinite(price) || price <= 0) return null;
+  if (price >= 1_00_00_000) {
+    const cr = price / 1_00_00_000;
+    const num = cr >= 10 ? cr.toFixed(1) : cr.toFixed(2).replace(/\.?0+$/, '');
+    return { main: `₹${num}`, suffix: 'Cr' };
+  }
+  if (price >= 1_00_000) {
+    const l = price / 1_00_000;
+    const num = l % 1 === 0 ? l.toFixed(0) : l.toFixed(1);
+    return { main: `₹${num}`, suffix: 'L' };
+  }
+  return { main: `₹${Math.round(price).toLocaleString('en-IN')}`, suffix: '' };
+}
+
 /** INR formatting for property cards / detail */
 export function formatInrPrice(price: number): string {
   if (!Number.isFinite(price) || price <= 0) return '—';
@@ -16,6 +32,13 @@ export function formatInrPrice(price: number): string {
 export function formatSqFt(area?: number | null): string {
   if (area == null || !Number.isFinite(area)) return '—';
   return `${Math.round(area).toLocaleString('en-IN')} sq.ft`;
+}
+
+export function formatGaj(areaSqFt?: number | null): string {
+  if (areaSqFt == null || !Number.isFinite(areaSqFt)) return '—';
+  const gaj = areaSqFt / 9;
+  const pretty = gaj >= 10 ? Math.round(gaj).toLocaleString('en-IN') : gaj.toFixed(1).replace(/\.0$/, '');
+  return `${pretty} gaj`;
 }
 
 export function formatFurnishing(raw?: string | null): string {
