@@ -3,8 +3,9 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { clearSessionTokens, setSessionTokens } from '../api/session';
 import { disconnectChatSocket } from '../api/chatSocket';
-import { authService } from '../services';
-import type { AuthUser, ProfileType, RegisterPayload } from '../types/auth.types';
+import { authService, userService } from '../services';
+import type { AuthUser, ProfileType, RegisterPayload, UserProfile } from '../types/auth.types';
+import type { CurrentUser } from '../types/user.types';
 
 interface AuthState {
   user: AuthUser | null;
@@ -13,11 +14,46 @@ interface AuthState {
   hasHydrated: boolean;
   setAuth: (user: AuthUser, access: string, refresh: string) => void;
   setTokens: (access: string, refresh: string) => void;
+  setUser: (user: AuthUser) => void;
+  patchProfile: (patch: Partial<UserProfile>) => void;
+  patchUser: (patch: Partial<AuthUser>) => void;
+  refreshCurrentUser: () => Promise<void>;
   clearAuth: () => void;
   loginWithPassword: (identifier: string, password: string) => Promise<void>;
   loginWithOtp: (payload: { email?: string; phone?: string; otp: string }) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+}
+
+/** Map a backend `/api/users/me` response into the lighter `AuthUser` used by the store. */
+function currentUserToAuthUser(curr: CurrentUser): AuthUser {
+  return {
+    id: curr.id,
+    email: curr.email,
+    phone: curr.phone,
+    role: curr.role,
+    profileType: curr.profileType,
+    isEmailVerified: curr.isEmailVerified,
+    isPhoneVerified: curr.isPhoneVerified,
+    profile: curr.profile
+      ? {
+          id: curr.profile.id,
+          firstName: curr.profile.firstName,
+          lastName: curr.profile.lastName,
+          profileImage: curr.profile.profileImage,
+          bio: curr.profile.bio,
+          gender: curr.profile.gender,
+          dateOfBirth: curr.profile.dateOfBirth,
+          occupation: curr.profile.occupation,
+          address: curr.profile.address,
+          city: curr.profile.city,
+          state: curr.profile.state,
+          pincode: curr.profile.pincode,
+          country: curr.profile.country,
+          preferredLanguage: curr.profile.preferredLanguage,
+        }
+      : null,
+  };
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -34,6 +70,32 @@ export const useAuthStore = create<AuthState>()(
       setTokens: (access, refresh) => {
         setSessionTokens(access, refresh);
         set({ accessToken: access, refreshToken: refresh });
+      },
+      setUser: user => set({ user }),
+      patchUser: patch => {
+        const current = get().user;
+        if (!current) return;
+        set({ user: { ...current, ...patch } });
+      },
+      patchProfile: patch => {
+        const current = get().user;
+        if (!current) return;
+        const baseProfile = current.profile ?? {
+          id: '',
+          firstName: '',
+          lastName: '',
+          profileImage: null,
+        };
+        set({
+          user: {
+            ...current,
+            profile: { ...baseProfile, ...patch },
+          },
+        });
+      },
+      refreshCurrentUser: async () => {
+        const fresh = await userService.fetchCurrentUser();
+        set({ user: currentUserToAuthUser(fresh) });
       },
       clearAuth: () => {
         disconnectChatSocket();

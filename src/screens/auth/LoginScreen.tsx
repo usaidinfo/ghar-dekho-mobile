@@ -11,42 +11,27 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { TextInput as PaperInput } from 'react-native-paper';
+import { TextInput as PaperInput, useTheme } from 'react-native-paper';
 import { Button } from '../../components/ui/Button';
-import type { MainStackParamList } from '../../navigation/types';
+import type { AuthStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../stores/auth.store';
 import * as authService from '../../services/auth.service';
 
-type LoginNav = NativeStackNavigationProp<MainStackParamList, 'Login'>;
+type LoginNav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen() {
   const navigation = useNavigation<LoginNav>();
-  const loginWithPassword = useAuthStore(s => s.loginWithPassword);
   const loginWithOtp = useAuthStore(s => s.loginWithOtp);
 
-  const [isOtpMode, setIsOtpMode] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [mode, setMode] = useState<'email' | 'phone'>('email');
 
   const { control, handleSubmit, formState: { errors, isSubmitting }, getValues, watch } = useForm({
-    defaultValues: { identifier: '', password: '', otp: '' },
+    defaultValues: { identifier: '', otp: '' },
   });
   const identifier = watch('identifier');
-
-  const finishAuth = () => {
-    if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('Tabs');
-  };
-
-  const onPasswordLogin = async (data: { identifier: string; password: string }) => {
-    try {
-      await loginWithPassword(data.identifier.trim(), data.password);
-      Toast.show({ type: 'success', text1: 'Welcome back' });
-      finishAuth();
-    } catch (e) {
-      Toast.show({ type: 'error', text1: authService.getApiErrorMessage(e) });
-    }
-  };
+  const theme = useTheme();
 
   const sendLoginOtp = async () => {
     const id = getValues('identifier')?.trim();
@@ -56,7 +41,9 @@ export default function LoginScreen() {
     }
     setSendingOtp(true);
     try {
-      const { email, phone } = authService.parseIdentifier(id);
+      const { email, phone } = mode === 'email'
+        ? { email: id.toLowerCase(), phone: undefined }
+        : authService.parseIdentifier(id);
       if (!email && !phone) {
         Toast.show({ type: 'error', text1: 'Enter a valid email or phone' });
         return;
@@ -80,7 +67,10 @@ export default function LoginScreen() {
 
   const onOtpLogin = async (data: { identifier: string; otp: string }) => {
     try {
-      const { email, phone } = authService.parseIdentifier(data.identifier.trim());
+      const id = data.identifier.trim();
+      const { email, phone } = mode === 'email'
+        ? { email: id.toLowerCase(), phone: undefined }
+        : authService.parseIdentifier(id);
       if (!email && !phone) {
         Toast.show({ type: 'error', text1: 'Enter a valid email or phone' });
         return;
@@ -89,33 +79,21 @@ export default function LoginScreen() {
         ...(email ? { email } : { phone }),
         otp: data.otp.trim(),
       });
-      Toast.show({ type: 'success', text1: 'Welcome back' });
-      finishAuth();
+      Toast.show({ type: 'success', text1: 'Welcome back!' });
+      // Navigator automatically switches to AppNavigator when user state is set.
     } catch (e) {
       Toast.show({ type: 'error', text1: authService.getApiErrorMessage(e) });
     }
   };
 
-  const toggleOtpMode = () => {
-    setIsOtpMode(v => !v);
+  const toggleMode = (next: 'email' | 'phone') => {
+    setMode(next);
     setOtpSent(false);
   };
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
       <View style={{ flex: 1, paddingHorizontal: 32, paddingVertical: 40, paddingBottom: 80 }}>
-          {navigation.canGoBack() && (
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.8}
-              className="mb-6 self-start flex-row items-center"
-            >
-              <View className="w-9 h-9 rounded-full bg-surface-input-alt items-center justify-center mr-2">
-                <Icon name="arrow-back" size={20} color="#122A47" />
-              </View>
-              <Text className="text-primary font-semibold text-sm">Back</Text>
-            </TouchableOpacity>
-          )}
 
           <View className="mb-10">
             <Text className="text-[34px] leading-10 font-extrabold text-dark tracking-tight mb-2">
@@ -125,6 +103,25 @@ export default function LoginScreen() {
           </View>
 
           <View className="space-y-5">
+            <View className="flex-row p-1.5 bg-surface-input-alt rounded-full w-full">
+              <TouchableOpacity
+                onPress={() => toggleMode('email')}
+                className={`flex-1 py-3 px-2 rounded-full items-center justify-center ${mode === 'email' ? 'bg-primary shadow-sm' : ''}`}
+              >
+                <Text className={`text-xs font-bold text-center ${mode === 'email' ? 'text-white' : 'text-neutral'}`}>
+                  Email OTP
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => toggleMode('phone')}
+                className={`flex-1 py-3 px-2 rounded-full items-center justify-center ${mode === 'phone' ? 'bg-primary shadow-sm' : ''}`}
+              >
+                <Text className={`text-xs font-bold text-center ${mode === 'phone' ? 'text-white' : 'text-neutral'}`}>
+                  Phone OTP
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <Controller
               control={control}
               rules={{ required: 'Email or phone is required' }}
@@ -132,16 +129,20 @@ export default function LoginScreen() {
               render={({ field: { onChange, onBlur, value } }) => (
                 <PaperInput
                   mode="outlined"
-                  label="Email or phone number"
+                  label={mode === 'email' ? 'Email address' : 'Phone number'}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
                   autoCapitalize="none"
-                  keyboardType={value?.includes('@') ? 'email-address' : 'phone-pad'}
+                  keyboardType={mode === 'email' ? 'email-address' : 'phone-pad'}
                   outlineStyle={{ borderRadius: 999 }}
-                  left={<PaperInput.Icon icon="account" />}
+                  left={<PaperInput.Icon icon={mode === 'email' ? 'email' : 'phone'} />}
                   error={Boolean(errors.identifier?.message)}
-                  style={{ backgroundColor: '#EEF0F4' }}
+                  style={{ backgroundColor: theme.colors.elevation.level2 }}
+                  textColor={theme.colors.onSurface}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  outlineColor={theme.colors.outline}
+                  activeOutlineColor={theme.colors.primary}
                 />
               )}
             />
@@ -151,113 +152,68 @@ export default function LoginScreen() {
               </Text>
             ) : null}
 
-            {!isOtpMode ? (
-              <View className="mt-5">
-                <View className="flex-row justify-end px-1">
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => Toast.show({ type: 'info', text1: 'Password reset coming soon' })}>
-                    <Text className="text-secondary text-sm font-bold">Forgot Password?</Text>
-                  </TouchableOpacity>
-                </View>
-                <Controller
-                  control={control}
-                  rules={{ required: 'Password is required' }}
-                  name="password"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <PaperInput
-                      mode="outlined"
-                      label="Password"
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      secureTextEntry
-                      outlineStyle={{ borderRadius: 999 }}
-                      left={<PaperInput.Icon icon="lock" />}
-                      error={Boolean(errors.password?.message)}
-                      style={{ backgroundColor: '#EEF0F4' }}
-                    />
-                  )}
-                />
-                {errors.password?.message ? (
-                  <Text style={{ color: '#EF4444', fontSize: 12, marginLeft: 4, marginTop: 6 }}>
-                    {errors.password.message as string}
-                  </Text>
-                ) : null}
-              </View>
-            ) : (
-              <View className="mt-2 space-y-4">
-                <Button
-                  title={otpSent ? 'Resend code' : 'Send verification code'}
-                  variant="outline"
-                  icon="sms"
-                  loading={sendingOtp}
-                  onPress={sendLoginOtp}
-                  disabled={!identifier?.trim()}
-                />
-                <Controller
-                  control={control}
-                  rules={{
-                    required: isOtpMode ? 'OTP is required' : false,
-                    minLength: isOtpMode ? { value: 4, message: 'Enter the code' } : undefined,
-                  }}
-                  name="otp"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <PaperInput
-                      mode="outlined"
-                      label="Verification code"
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      keyboardType="number-pad"
-                      outlineStyle={{ borderRadius: 999 }}
-                      left={<PaperInput.Icon icon="shield-check" />}
-                      error={Boolean(errors.otp?.message)}
-                      style={{ backgroundColor: '#EEF0F4' }}
-                    />
-                  )}
-                />
-                {errors.otp?.message ? (
-                  <Text style={{ color: '#EF4444', fontSize: 12, marginLeft: 4, marginTop: 6 }}>
-                    {errors.otp.message as string}
-                  </Text>
-                ) : null}
-              </View>
-            )}
+            <View className="mt-2 space-y-4">
+              <Button
+                title={otpSent ? 'Resend code' : 'Send verification code'}
+                variant="outline"
+                icon="sms"
+                loading={sendingOtp}
+                onPress={sendLoginOtp}
+                disabled={!identifier?.trim()}
+              />
+              <Controller
+                control={control}
+                rules={{
+                  required: 'OTP is required',
+                  minLength: { value: 4, message: 'Enter the code' },
+                }}
+                name="otp"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <PaperInput
+                    mode="outlined"
+                    label="Verification code"
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    keyboardType="number-pad"
+                    outlineStyle={{ borderRadius: 999 }}
+                    left={<PaperInput.Icon icon="shield-check" />}
+                    error={Boolean(errors.otp?.message)}
+                    style={{ backgroundColor: theme.colors.elevation.level2 }}
+                    textColor={theme.colors.onSurface}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                    outlineColor={theme.colors.outline}
+                    activeOutlineColor={theme.colors.primary}
+                  />
+                )}
+              />
+              {errors.otp?.message ? (
+                <Text style={{ color: '#EF4444', fontSize: 12, marginLeft: 4, marginTop: 6 }}>
+                  {errors.otp.message as string}
+                </Text>
+              ) : null}
+            </View>
           </View>
 
           <View className="mt-8 space-y-4">
-            {!isOtpMode ? (
-              <Button
-                title="Login"
-                onPress={handleSubmit(onPasswordLogin)}
-                loading={isSubmitting}
-              />
-            ) : (
-              <Button
-                title="Verify & Login"
-                onPress={handleSubmit(onOtpLogin)}
-                loading={isSubmitting}
-              />
-            )}
-
-            <View className="flex-row items-center my-4 opacity-50">
-              <View className="flex-1 h-[1px] bg-neutral" />
-              <Text className="mx-4 text-neutral text-xs font-bold uppercase tracking-widest">OR</Text>
-              <View className="flex-1 h-[1px] bg-neutral" />
-            </View>
-
             <Button
-              title={isOtpMode ? 'Use password instead' : 'Login with OTP instead'}
-              variant="outline"
-              icon="sms"
-              onPress={toggleOtpMode}
+              title="Verify & Continue"
+              onPress={handleSubmit(onOtpLogin)}
+              loading={isSubmitting}
             />
           </View>
 
-          <View className="flex-row justify-center mt-12 mb-8">
-            <Text className="text-neutral font-medium text-base">Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text className="text-secondary font-bold text-base">Sign Up</Text>
+          <View className="flex-row justify-center mt-10 mb-4">
+            <Text className="text-neutral font-medium text-sm">Don't have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup')} activeOpacity={0.8}>
+              <Text className="text-secondary font-bold text-sm">Sign up</Text>
             </TouchableOpacity>
+          </View>
+
+          <View className="flex-row justify-center mb-8">
+            <Text className="text-neutral text-xs text-center opacity-60">
+              New users are registered automatically on first login.
+            </Text>
           </View>
 
           <View className="w-full h-[140px] rounded-3xl overflow-hidden mt-auto relative">

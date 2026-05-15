@@ -1,10 +1,14 @@
-
 import React from 'react';
 import { View, Text } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import BottomTabNavigator from './BottomTabNavigator';
+
+import { useAuthStore } from '../stores/auth.store';
+
+import SplashScreen from '../screens/auth/SplashScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
+
+import BottomTabNavigator from './BottomTabNavigator';
 import PropertyDetailScreen from '../screens/main/PropertyDetailScreen';
 import SearchResultsScreen from '../screens/main/SearchResultsScreen';
 import MyListingsScreen from '../screens/main/MyListingsScreen';
@@ -14,7 +18,9 @@ import ChatThreadScreen from '../screens/main/ChatThreadScreen';
 import PostPropertyScreen from '../screens/main/PostPropertyScreen';
 import MyVisitsScreen from '../screens/main/MyVisitsScreen';
 import VisitScheduledScreen from '../screens/main/VisitScheduledScreen';
-import type { MainStackParamList } from './types';
+import EditProfileScreen from '../screens/main/EditProfileScreen';
+
+import type { MainStackParamList, AuthStackParamList } from './types';
 
 const Placeholder: React.FC<{ label: string }> = ({ label }) => (
   <View className="flex-1 items-center justify-center bg-surface">
@@ -26,33 +32,82 @@ const ProjectDetailScreen = () => <Placeholder label="Project Detail" />;
 const AdvisorAIScreen = () => <Placeholder label="Ghar Advisor AI" />;
 const NeighborhoodDetailScreen = () => <Placeholder label="Neighborhood Detail" />;
 const NotificationsScreen = () => <Placeholder label="Notifications" />;
-const EditProfileScreen = () => <Placeholder label="Edit Profile" />;
 
-const Stack = createNativeStackNavigator<MainStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const AppStack = createNativeStackNavigator<MainStackParamList>();
 
-const MainNavigator: React.FC = () => (
-  <Stack.Navigator
-    initialRouteName="Tabs"
-    screenOptions={{ headerShown: false }}
-  >
-    <Stack.Screen name="Tabs" component={BottomTabNavigator} />
-    <Stack.Screen name="PostProperty" component={PostPropertyScreen} />
-    <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="Signup" component={SignupScreen} />
-    <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} />
-    <Stack.Screen name="MyVisits" component={MyVisitsScreen} />
-    <Stack.Screen name="VisitScheduled" component={VisitScheduledScreen} />
-    <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
-    <Stack.Screen name="AdvisorAI" component={AdvisorAIScreen} />
-    <Stack.Screen name="SearchResults" component={SearchResultsScreen} />
-    <Stack.Screen name="MyListings" component={MyListingsScreen} />
-    <Stack.Screen name="Wishlist" component={WishlistScreen} />
-    <Stack.Screen name="NeighborhoodDetail" component={NeighborhoodDetailScreen} />
-    <Stack.Screen name="ChatInbox" component={ChatInboxScreen} />
-    <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
-    <Stack.Screen name="Notifications" component={NotificationsScreen} />
-    <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-  </Stack.Navigator>
-);
+/**
+ * Auth navigator — shown when the user is NOT logged in.
+ * Login is the entry point; Signup is reachable from within Login.
+ */
+function AuthNavigator() {
+  return (
+    <AuthStack.Navigator
+      initialRouteName="Login"
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade',
+      }}
+    >
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen
+        name="Signup"
+        component={SignupScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+    </AuthStack.Navigator>
+  );
+}
+
+/**
+ * App navigator — shown when the user IS logged in.
+ * Always starts at Tabs (Home).
+ */
+function AppNavigator() {
+  return (
+    <AppStack.Navigator
+      initialRouteName="Tabs"
+      screenOptions={{ headerShown: false }}
+    >
+      <AppStack.Screen name="Tabs" component={BottomTabNavigator} />
+      <AppStack.Screen name="PostProperty" component={PostPropertyScreen} />
+      <AppStack.Screen name="PropertyDetail" component={PropertyDetailScreen} />
+      <AppStack.Screen name="MyVisits" component={MyVisitsScreen} />
+      <AppStack.Screen name="VisitScheduled" component={VisitScheduledScreen} />
+      <AppStack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
+      <AppStack.Screen name="AdvisorAI" component={AdvisorAIScreen} />
+      <AppStack.Screen name="SearchResults" component={SearchResultsScreen} />
+      <AppStack.Screen name="MyListings" component={MyListingsScreen} />
+      <AppStack.Screen name="Wishlist" component={WishlistScreen} />
+      <AppStack.Screen name="NeighborhoodDetail" component={NeighborhoodDetailScreen} />
+      <AppStack.Screen name="ChatInbox" component={ChatInboxScreen} />
+      <AppStack.Screen name="ChatThread" component={ChatThreadScreen} />
+      <AppStack.Screen name="Notifications" component={NotificationsScreen} />
+      <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
+    </AppStack.Navigator>
+  );
+}
+
+/**
+ * Root navigator.
+ *
+ * Flow:
+ *  - Hydrating  → SplashScreen (branded loading)
+ *  - Not logged in → AuthNavigator (Login → Signup)
+ *  - Logged in  → AppNavigator  (Home + all app screens)
+ *
+ * React Navigation automatically transitions between stacks when
+ * auth state changes — no manual navigation calls needed in screens.
+ */
+const MainNavigator: React.FC = () => {
+  const user = useAuthStore(s => s.user);
+  const hasHydrated = useAuthStore(s => s.hasHydrated);
+
+  if (!hasHydrated) {
+    return <SplashScreen />;
+  }
+
+  return user ? <AppNavigator /> : <AuthNavigator />;
+};
 
 export default MainNavigator;

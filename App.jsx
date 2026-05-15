@@ -1,20 +1,24 @@
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StatusBar } from 'react-native';
+import { StatusBar, useColorScheme } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { Provider as PaperProvider } from 'react-native-paper';
+import { MD3DarkTheme, MD3LightTheme, Provider as PaperProvider } from 'react-native-paper';
 import MainNavigator from './src/navigation/MainNavigator';
 
 export default function App() {
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+  const paperTheme = isDark ? MD3DarkTheme : MD3LightTheme;
+
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <BottomSheetModalProvider>
-          <PaperProvider>
+          <PaperProvider theme={paperTheme}>
             <NavigationContainer>
               <MainNavigator />
             </NavigationContainer>

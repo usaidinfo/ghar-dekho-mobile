@@ -124,8 +124,9 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
     if (!myId) {
+      // Logged-out users never reach this screen (root navigator gates auth),
+      // but keep a defensive toast in case of a revoked session mid-view.
       Toast.show({ type: 'info', text1: 'Please sign in to chat' });
-      navigation.navigate('Login');
       return;
     }
     try {
@@ -164,7 +165,6 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     }
     if (!myId) {
       Toast.show({ type: 'info', text1: 'Please sign in to schedule a visit' });
-      navigation.navigate('Login');
       return;
     }
     setVisitOpen(true);

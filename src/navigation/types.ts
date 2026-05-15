@@ -1,6 +1,9 @@
 /**
  * Navigation types for GharDekho.
- * Main stack: tabs first (guest-friendly); auth and detail screens are pushed on demand.
+ *
+ * AuthStackParamList  — screens shown before login (Login, Signup)
+ * MainStackParamList  — screens shown after login (all app screens)
+ * BottomTabParamList  — bottom tab screens
  */
 
 import type { NavigatorScreenParams } from '@react-navigation/native';
@@ -24,12 +27,17 @@ export type ChatThreadParams = {
   listingType?: string | null;
 };
 
+/** Auth stack — only visible when user is NOT logged in. */
+export type AuthStackParamList = {
+  Login: undefined;
+  Signup: undefined;
+};
+
+/** App stack — only visible when user IS logged in. */
 export type MainStackParamList = {
   Tabs: NavigatorScreenParams<BottomTabParamList> | undefined;
   /** Full-screen list property flow (no bottom tab bar). */
   PostProperty: undefined;
-  Login: undefined;
-  Signup: undefined;
   PropertyDetail: { propertyId: string };
   MyVisits: undefined;
   VisitScheduled: {
