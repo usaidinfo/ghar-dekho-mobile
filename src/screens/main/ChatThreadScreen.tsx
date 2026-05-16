@@ -4,7 +4,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform, type ListRenderItem } from 'react-native';
+import { View, FlatList, StyleSheet, type LayoutChangeEvent, type ListRenderItem } from 'react-native';
+import {
+  KeyboardGestureArea,
+  KeyboardStickyView,
+  useKeyboardHandler,
+  useResizeMode,
+} from 'react-native-keyboard-controller';
+import { runOnJS } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -24,19 +31,22 @@ import { normalizeChatImagePart } from '../../utils/chatImageUpload';
 import ChatThreadHeader from '../../components/chat/ChatThreadHeader';
 import ChatPropertyContextBar from '../../components/chat/ChatPropertyContextBar';
 import ChatMessageBubble from '../../components/chat/ChatMessageBubble';
-import ChatComposer from '../../components/chat/ChatComposer';
+import ChatComposer, {
+  CHAT_COMPOSER_MIN_HEIGHT,
+  CHAT_INPUT_NATIVE_ID,
+} from '../../components/chat/ChatComposer';
 import ChatDaySeparator from '../../components/chat/ChatDaySeparator';
 import ChatThreadSkeleton from '../../components/chat/ChatThreadSkeleton';
+import ChatWallpaper from '../../components/chat/ChatWallpaper';
+import { CHAT } from '../../components/chat/chatTheme';
 
 type Props = NativeStackScreenProps<MainStackParamList, 'ChatThread'>;
 
 type Row = { type: 'day'; label: string; id: string } | { type: 'msg'; msg: ChatMessage; id: string };
 
-/**
- * Build rows for an inverted FlatList (index 0 = visual bottom = newest).
- * For each calendar day: list that day's messages newest-first, then the day pill
- * so the label sits above that day's block (chronological "start" of the day).
- */
+/** Tight gap between last message and composer (WhatsApp-like). */
+const LIST_COMPOSER_GAP = 4;
+
 function rowsForInverted(messages: ChatMessage[]): Row[] {
   const sorted = [...messages].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   const out: Row[] = [];
@@ -58,6 +68,8 @@ function rowsForInverted(messages: ChatMessage[]): Row[] {
 }
 
 const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
+  useResizeMode();
+
   const insets = useSafeAreaInsets();
   const myId = useAuthStore(s => s.user?.id);
   const {
@@ -75,6 +87,7 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [typing, setTyping] = useState(false);
+  const [composerHeight, setComposerHeight] = useState(CHAT_COMPOSER_MIN_HEIGHT);
   const typingClear = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList<Row>>(null);
   const mounted = useRef(true);
@@ -83,6 +96,24 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
   const peerName = prefName?.trim() || 'Conversation';
   const showPropertyBar = Boolean(propertyId && propertyTitle && propertyPrice != null);
 
+  const scrollToLatest = useCallback(() => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+  }, []);
+
+  useKeyboardHandler(
+    {
+      onEnd: e => {
+        'worklet';
+        if (e.height > 0) {
+          runOnJS(scrollToLatest)();
+        }
+      },
+    },
+    [scrollToLatest],
+  );
+
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -90,12 +121,21 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     };
   }, []);
 
-  const mergeMessage = useCallback((msg: ChatMessage) => {
-    setMessages(prev => {
-      if (prev.some(m => m.id === msg.id)) return prev;
-      return [...prev, msg];
-    });
+  const onComposerLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setComposerHeight(h);
   }, []);
+
+  const mergeMessage = useCallback(
+    (msg: ChatMessage) => {
+      setMessages(prev => {
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      scrollToLatest();
+    },
+    [scrollToLatest],
+  );
 
   const loadMessages = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -104,6 +144,7 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
       if (!mounted.current) return;
       if (res.success && Array.isArray(res.data)) {
         setMessages(res.data);
+        scrollToLatest();
       }
     } catch (e) {
       if (!opts?.silent) {
@@ -112,7 +153,7 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     } finally {
       if (mounted.current && !opts?.silent) setLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, scrollToLatest]);
 
   useFocusEffect(
     useCallback(() => {
@@ -140,8 +181,6 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     const onMsg = (msg: ChatMessage) => {
-      // eslint-disable-next-line no-console
-      console.log('[chat-thread] incoming chat:message', { sessionId, msgSessionId: msg.sessionId, id: msg.id });
       if (msg.sessionId !== sessionId) return;
       mergeMessage(msg);
     };
@@ -160,12 +199,7 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
     };
 
     const joinAndRead = () => {
-      // eslint-disable-next-line no-console
-      console.log('[chat-thread] joinAndRead', { sessionId, connected: sock?.connected });
-      sock?.emit('chat:join', sessionId, (ack?: { ok?: boolean; error?: string }) => {
-        // eslint-disable-next-line no-console
-        console.log('[chat-thread] join ack', { sessionId, ack });
-      });
+      sock?.emit('chat:join', sessionId);
       sock?.emit('chat:read', { sessionId });
     };
 
@@ -195,29 +229,19 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
       setSending(true);
       try {
         if (sock?.connected) {
-          // eslint-disable-next-line no-console
-          console.log('[chat-thread] send via socket', { sessionId });
-          sock.emit(
-            'chat:message',
-            { sessionId, content: text, messageType: 'TEXT' },
-            (ack?: { ok?: boolean; error?: string; messageId?: string }) => {
-              // eslint-disable-next-line no-console
-              console.log('[chat-thread] send ack', { sessionId, ack });
-            },
-          );
+          sock.emit('chat:message', { sessionId, content: text, messageType: 'TEXT' });
         } else {
-          // eslint-disable-next-line no-console
-          console.log('[chat-thread] send via REST fallback', { sessionId });
           const res = await sendChatMessageJson(sessionId, { content: text, messageType: 'TEXT' });
           if (res.success && res.data) mergeMessage(res.data);
         }
+        scrollToLatest();
       } catch (e) {
         Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Send failed' });
       } finally {
         setSending(false);
       }
     },
-    [sessionId, mergeMessage],
+    [sessionId, mergeMessage, scrollToLatest],
   );
 
   const sendImage = useCallback(
@@ -232,13 +256,14 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
         form.append('media', { uri, type, name } as unknown as Blob);
         const res = await sendChatMessageMultipart(sessionId, form);
         if (res.success && res.data) mergeMessage(res.data);
+        scrollToLatest();
       } catch (e) {
         Toast.show({ type: 'error', text1: e instanceof Error ? e.message : 'Upload failed' });
       } finally {
         setSending(false);
       }
     },
-    [sessionId, mergeMessage],
+    [sessionId, mergeMessage, scrollToLatest],
   );
 
   const emitTyping = useCallback(() => {
@@ -250,14 +275,34 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
   }, [sessionId]);
 
   const renderItem: ListRenderItem<Row> = useCallback(
-    ({ item }) => {
+    ({ item, index }) => {
       if (item.type === 'day') return <ChatDaySeparator label={item.label} />;
-      return <ChatMessageBubble message={item.msg} isMine={item.msg.senderId === myId} />;
-    },
-    [myId],
-  );
 
-  const bottomPad = Math.max(insets.bottom, 8);
+      const prev = flatData[index - 1];
+      const next = flatData[index + 1];
+      const sameDayAs = (other: Row | undefined) =>
+        other?.type === 'msg' &&
+        formatDayLabel(other.msg.createdAt) === formatDayLabel(item.msg.createdAt);
+      const groupBelow =
+        prev?.type === 'msg' &&
+        prev.msg.senderId === item.msg.senderId &&
+        sameDayAs(prev);
+      const groupAbove =
+        next?.type === 'msg' &&
+        next.msg.senderId === item.msg.senderId &&
+        sameDayAs(next);
+
+      return (
+        <ChatMessageBubble
+          message={item.msg}
+          isMine={item.msg.senderId === myId}
+          isFirstInGroup={!groupAbove}
+          isLastInGroup={!groupBelow}
+        />
+      );
+    },
+    [myId, flatData],
+  );
 
   if (loading && messages.length === 0) {
     return (
@@ -270,52 +315,71 @@ const ChatThreadScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
-        <ChatThreadHeader
-          peerName={peerName}
-          peerImageUri={prefImage}
-          isTyping={typing}
-          onBack={() => navigation.goBack()}
+      <ChatThreadHeader
+        peerName={peerName}
+        peerImageUri={prefImage}
+        isTyping={typing}
+        onBack={() => navigation.goBack()}
+      />
+      {showPropertyBar ? (
+        <ChatPropertyContextBar
+          title={propertyTitle!}
+          price={propertyPrice!}
+          listingType={listingType}
+          subtitle={null}
+          thumbnailUrl={propertyThumb}
+          onViewListing={() => navigation.navigate('PropertyDetail', { propertyId: propertyId! })}
         />
-        {showPropertyBar ? (
-          <ChatPropertyContextBar
-            title={propertyTitle!}
-            price={propertyPrice!}
-            listingType={listingType}
-            subtitle={null}
-            thumbnailUrl={propertyThumb}
-            onViewListing={() => navigation.navigate('PropertyDetail', { propertyId: propertyId! })}
+      ) : null}
+
+      <ChatWallpaper>
+        <KeyboardGestureArea
+          style={styles.flex}
+          interpolator="ios"
+          textInputNativeID={CHAT_INPUT_NATIVE_ID}
+          offset={CHAT_COMPOSER_MIN_HEIGHT}
+        >
+          <FlatList
+            ref={listRef}
+            style={styles.flex}
+            data={flatData}
+            inverted
+            keyExtractor={i => i.id}
+            renderItem={renderItem}
+            extraData={composerHeight}
+            contentContainerStyle={{
+              paddingTop: composerHeight + LIST_COMPOSER_GAP,
+              paddingBottom: 10,
+            }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            onContentSizeChange={scrollToLatest}
           />
-        ) : null}
 
-        <FlatList
-          ref={listRef}
-          data={flatData}
-          inverted
-          keyExtractor={i => i.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingTop: bottomPad + 8, paddingBottom: 12 }}
-          onContentSizeChange={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
-        />
-
-        <ChatComposer
-          onSendText={sendText}
-          onSendImage={sendImage}
-          onTyping={emitTyping}
-          onStopTyping={emitStopTyping}
-          sending={sending}
-        />
-      </KeyboardAvoidingView>
+          <KeyboardStickyView
+            offset={{
+              closed: insets.bottom,
+              opened: 0,
+            }}
+          >
+            <ChatComposer
+              onSendText={sendText}
+              onSendImage={sendImage}
+              onTyping={emitTyping}
+              onStopTyping={emitStopTyping}
+              sending={sending}
+              onComposerLayout={onComposerLayout}
+            />
+          </KeyboardStickyView>
+        </KeyboardGestureArea>
+      </ChatWallpaper>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#faf9fc' },
+  safe: { flex: 1, backgroundColor: CHAT.headerBg },
   flex: { flex: 1 },
 });
 

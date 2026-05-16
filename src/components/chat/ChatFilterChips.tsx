@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { CHAT } from './chatTheme';
 
 export type InboxFilter = 'all' | 'unread' | 'properties' | 'direct';
 
@@ -39,22 +40,27 @@ const ChatFilterChips: React.FC<ChatFilterChipsProps> = ({ value, onChange }) =>
 );
 
 const styles = StyleSheet.create({
-  scroll: { maxHeight: 52 },
+  scroll: {
+    maxHeight: 48,
+    backgroundColor: CHAT.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: CHAT.separator,
+  },
   row: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    gap: 10,
+    gap: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
   chip: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#f5f3f6',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+    backgroundColor: CHAT.surfaceAlt,
   },
-  chipOn: { backgroundColor: '#00152e' },
-  chipText: { fontSize: 13, fontWeight: '600', color: '#44474d' },
+  chipOn: { backgroundColor: CHAT.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: CHAT.muted },
   chipTextOn: { color: '#fff' },
 });
 

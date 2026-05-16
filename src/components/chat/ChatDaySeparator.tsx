@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { CHAT } from './chatTheme';
 
 const ChatDaySeparator: React.FC<{ label: string }> = ({ label }) => (
   <View style={styles.wrap}>
@@ -10,14 +11,24 @@ const ChatDaySeparator: React.FC<{ label: string }> = ({ label }) => (
 );
 
 const styles = StyleSheet.create({
-  wrap: { width: '100%', alignItems: 'center', marginVertical: 10, paddingHorizontal: 22 },
+  wrap: { width: '100%', alignItems: 'center', marginVertical: 12, paddingHorizontal: 16 },
   pill: {
-    backgroundColor: '#e9e7ea',
+    backgroundColor: 'rgba(255,255,255,0.92)',
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-  text: { fontSize: 10, fontWeight: '800', color: '#44474d', letterSpacing: 0.8, textTransform: 'uppercase' },
+  text: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: CHAT.muted,
+    letterSpacing: 0.2,
+  },
 });
 
 export default ChatDaySeparator;

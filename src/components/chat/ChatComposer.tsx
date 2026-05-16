@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
+  type LayoutChangeEvent,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { launchImageLibrary, type Asset } from 'react-native-image-picker';
@@ -13,12 +14,17 @@ import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 const PRIMARY = '#00152e';
 const SURFACE = '#e3e2e5';
 
+export const CHAT_COMPOSER_MIN_HEIGHT = 48;
+
+export const CHAT_INPUT_NATIVE_ID = 'chat-composer-input';
+
 export interface ChatComposerProps {
   onSendText: (text: string) => void | Promise<void>;
   onSendImage: (asset: Asset) => void | Promise<void>;
   onTyping: () => void;
   onStopTyping: () => void;
   sending?: boolean;
+  onComposerLayout?: (e: LayoutChangeEvent) => void;
 }
 
 const ChatComposer: React.FC<ChatComposerProps> = ({
@@ -27,6 +33,7 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
   onTyping,
   onStopTyping,
   sending = false,
+  onComposerLayout,
 }) => {
   const [text, setText] = useState('');
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,12 +72,13 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
   }, [onSendImage]);
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} onLayout={onComposerLayout}>
       <TouchableOpacity style={styles.circleBtn} onPress={pickImage} accessibilityLabel="Attach photo">
         <Icon name="plus" size={26} color={PRIMARY} />
       </TouchableOpacity>
       <View style={styles.inputShell}>
         <TextInput
+          nativeID={CHAT_INPUT_NATIVE_ID}
           style={styles.input}
           placeholder="Type your message…"
           placeholderTextColor="rgba(68,71,77,0.45)"
@@ -83,6 +91,9 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
           multiline
           maxLength={4000}
           editable={!sending}
+          textAlignVertical="top"
+          underlineColorAndroid="transparent"
+          keyboardAppearance="light"
         />
         <TouchableOpacity style={styles.inlineIcon} onPress={pickImage} hitSlop={8}>
           <Icon name="image-outline" size={22} color="#44474d" />
@@ -111,7 +122,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+    paddingBottom: 10,
     backgroundColor: 'rgba(250,249,252,0.94)',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(196,198,206,0.35)',
@@ -133,7 +144,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingLeft: 16,
     paddingRight: 44,
-    minHeight: 48,
+    minHeight: CHAT_COMPOSER_MIN_HEIGHT,
     maxHeight: 120,
   },
   input: {
@@ -144,7 +155,11 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     maxHeight: 110,
   },
-  inlineIcon: { position: 'absolute', right: 12, top: '30%' },
+  inlineIcon: {
+    position: 'absolute',
+    right: 12,
+    top: '30%',
+  },
   sendBtn: {
     width: 48,
     height: 48,

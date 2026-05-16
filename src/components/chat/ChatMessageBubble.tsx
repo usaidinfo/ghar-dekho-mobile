@@ -1,227 +1,378 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  Linking,
+  Modal,
+  Pressable,
+  useWindowDimensions,
+  ActivityIndicator,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import type { ChatMessage } from '../../types/chat.api.types';
 import { formatMessageTime } from '../../utils/chatDisplay';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
+import { CHAT, CHAT_BUBBLE } from './chatTheme';
 
-const PRIMARY = '#00152e';
-const PRIMARY_END = '#122a47';
-const MUTED = '#44474d';
-const TEAL = '#509d9b';
-const SURFACE = '#e3e2e5';
+const IMAGE_HEIGHT = 200;
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage;
   isMine: boolean;
+  /** Visually above this message (older). */
+  isFirstInGroup?: boolean;
+  /** Visually below this message (newer). */
+  isLastInGroup?: boolean;
 }
 
-const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({ message, isMine }) => {
+function hasVisibleCaption(content: string | null | undefined): boolean {
+  const t = content?.replace(/\s+/g, ' ').trim();
+  return Boolean(t && t.length > 0);
+}
+
+function bubbleRadii(isMine: boolean, isFirst: boolean, isLast: boolean) {
+  const L = CHAT_BUBBLE.radiusLg;
+  const S = CHAT_BUBBLE.radiusSm;
+  if (isMine) {
+    return {
+      borderTopLeftRadius: L,
+      borderTopRightRadius: isFirst ? L : S,
+      borderBottomLeftRadius: L,
+      borderBottomRightRadius: isLast ? S : S,
+    };
+  }
+  return {
+    borderTopLeftRadius: isFirst ? L : S,
+    borderTopRightRadius: L,
+    borderBottomLeftRadius: isLast ? S : S,
+    borderBottomRightRadius: L,
+  };
+}
+
+const BubbleMeta: React.FC<{ time: string; isMine: boolean; isRead?: boolean; light?: boolean }> = ({
+  time,
+  isMine,
+  isRead,
+  light,
+}) => (
+  <View style={styles.metaRow}>
+    <Text style={[styles.metaTime, light && styles.metaTimeLight]}>{time}</Text>
+    {isMine && isRead ? (
+      <Icon name="check-all" size={14} color={light ? '#b8e6e4' : CHAT.teal} style={styles.metaCheck} />
+    ) : null}
+  </View>
+);
+
+const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
+  message,
+  isMine,
+  isFirstInGroup = true,
+  isLastInGroup = true,
+}) => {
+  const { width: screenW } = useWindowDimensions();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+
   const time = formatMessageTime(message.createdAt);
+  const imageWidth = Math.min(Math.round(screenW * 0.68), 260);
+  const radii = bubbleRadii(isMine, isFirstInGroup, isLastInGroup);
+  const marginBottom = isLastInGroup ? CHAT_BUBBLE.blockGap : CHAT_BUBBLE.groupGap;
+
+  const mediaUri = useMemo(() => resolveMediaUrl(message.mediaUrl), [message.mediaUrl]);
+
+  useEffect(() => {
+    setImageFailed(false);
+    setImageLoading(true);
+  }, [mediaUri]);
 
   if (message.isDeleted) {
     return (
-      <View style={[styles.row, styles.rowOther]}>
+      <View style={[styles.row, styles.rowOther, { marginBottom }]}>
         <View style={styles.deletedBubble}>
-          <Text style={styles.deletedText}>This message was deleted.</Text>
+          <Text style={styles.deletedText}>This message was deleted</Text>
         </View>
       </View>
     );
   }
 
-  if (message.messageType === 'VIDEO' && message.mediaUrl) {
+  if (message.messageType === 'VIDEO' && mediaUri) {
     return (
-      <View style={[styles.row, isMine ? styles.rowMine : styles.rowOther]}>
+      <View style={[styles.row, isMine ? styles.rowMine : styles.rowOther, { marginBottom }]}>
         <TouchableOpacity
-          onPress={() => Linking.openURL(message.mediaUrl!).catch(() => undefined)}
-          style={isMine ? styles.videoCardMine : styles.videoCardOther}
+          onPress={() => Linking.openURL(mediaUri).catch(() => undefined)}
+          style={[isMine ? styles.videoMine : styles.videoOther, radii]}
         >
-          <Text style={isMine ? styles.textMine : styles.textOther}>▶ Video</Text>
-          <Text style={[styles.linkHint, isMine && { color: 'rgba(255,255,255,0.75)' }]} numberOfLines={2}>
-            Open link
-          </Text>
+          <Icon name="play-circle-outline" size={28} color={isMine ? '#fff' : CHAT.primary} />
+          <Text style={isMine ? styles.textMine : styles.textOther}>Video</Text>
         </TouchableOpacity>
-        <Text style={[styles.time, isMine ? styles.timeMine : styles.timeOther]}>{time}</Text>
+        {!isLastInGroup ? null : (
+          <BubbleMeta time={time} isMine={isMine} isRead={message.isRead} />
+        )}
       </View>
     );
   }
 
-  if (message.messageType === 'IMAGE' && message.mediaUrl) {
-    const bubble = (
-      <View style={[styles.mediaWrap, isMine ? styles.alignEnd : styles.alignStart]}>
-        <Image source={{ uri: message.mediaUrl }} style={styles.mediaImg} resizeMode="cover" />
-        {message.content ? (
-          <View style={styles.mediaCaption}>
-            <Text style={styles.mediaCaptionText}>{message.content}</Text>
+  if (message.messageType === 'IMAGE') {
+    const showCaption = hasVisibleCaption(message.content);
+
+    return (
+      <>
+        <View style={[styles.row, isMine ? styles.rowMine : styles.rowOther, { marginBottom }]}>
+          <View style={[styles.mediaOuter, { width: imageWidth }, isMine ? styles.alignEnd : styles.alignStart]}>
+            {mediaUri && !imageFailed ? (
+              <TouchableOpacity activeOpacity={0.92} onPress={() => setPreviewOpen(true)}>
+                <View style={[styles.mediaFrame, { width: imageWidth, height: IMAGE_HEIGHT }, radii]}>
+                  {imageLoading ? (
+                    <View style={styles.mediaLoading}>
+                      <ActivityIndicator color={CHAT.primary} />
+                    </View>
+                  ) : null}
+                  <Image
+                    source={{ uri: mediaUri }}
+                    style={{ width: imageWidth, height: IMAGE_HEIGHT }}
+                    resizeMode="cover"
+                    onLoadEnd={() => setImageLoading(false)}
+                    onError={() => {
+                      setImageFailed(true);
+                      setImageLoading(false);
+                    }}
+                  />
+                  <View style={styles.mediaTimeOverlay} pointerEvents="none">
+                    <Text style={styles.mediaTimeText}>{time}</Text>
+                    {isMine && message.isRead ? (
+                      <Icon name="check-all" size={13} color="#b8e6e4" />
+                    ) : null}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={[
+                  styles.mediaFrame,
+                  styles.mediaError,
+                  { width: imageWidth, height: IMAGE_HEIGHT },
+                  radii,
+                ]}
+              >
+                <Icon name="image-off-outline" size={32} color={CHAT.muted} />
+                <Text style={styles.mediaErrorText}>Photo unavailable</Text>
+              </View>
+            )}
+            {showCaption ? (
+              <View style={[styles.captionBox, isMine ? styles.captionMine : styles.captionOther]}>
+                <Text style={styles.captionText}>{message.content.trim()}</Text>
+              </View>
+            ) : null}
           </View>
-        ) : null}
-        <Text style={[styles.time, isMine ? styles.timeMine : styles.timeOther]}>{time}</Text>
-      </View>
+        </View>
+
+        <Modal visible={previewOpen} transparent animationType="fade" onRequestClose={() => setPreviewOpen(false)}>
+          <Pressable style={styles.previewBackdrop} onPress={() => setPreviewOpen(false)}>
+            <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewOpen(false)}>
+              <Icon name="close" size={26} color="#fff" />
+            </TouchableOpacity>
+            {mediaUri ? <Image source={{ uri: mediaUri }} style={styles.previewImg} resizeMode="contain" /> : null}
+          </Pressable>
+        </Modal>
+      </>
     );
-    return <View style={[styles.row, isMine ? styles.rowMine : styles.rowOther]}>{bubble}</View>;
   }
 
   if (message.messageType === 'PROPERTY_LINK') {
     return (
-      <View style={[styles.row, isMine ? styles.rowMine : styles.rowOther]}>
+      <View style={[styles.row, isMine ? styles.rowMine : styles.rowOther, { marginBottom }]}>
         {isMine ? (
-          <LinearGradient colors={[PRIMARY, PRIMARY_END]} style={styles.propCard}>
-            <View style={styles.propIconBg}>
-              <Icon name="home-city" size={22} color="#fff" />
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.propTitle} numberOfLines={2}>
+          <LinearGradient colors={[CHAT.primary, CHAT.primaryEnd]} style={[styles.propCard, radii]}>
+            <Icon name="home-city" size={22} color="#fff" />
+            <View style={styles.propTextCol}>
+              <Text style={styles.propTitleMine} numberOfLines={2}>
                 {message.content || 'Property'}
               </Text>
-              <Text style={styles.propSub}>Property link</Text>
+              <Text style={styles.propSubMine}>Tap to view listing</Text>
             </View>
+            <BubbleMeta time={time} isMine isRead={message.isRead} light />
           </LinearGradient>
         ) : (
-          <View style={[styles.propCardFlat]}>
-            <Icon name="home-city" size={22} color={PRIMARY} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.propTitleDark} numberOfLines={2}>
+          <View style={[styles.propCardOther, radii]}>
+            <Icon name="home-city" size={22} color={CHAT.primary} />
+            <View style={styles.propTextCol}>
+              <Text style={styles.propTitleOther} numberOfLines={2}>
                 {message.content || 'Property'}
               </Text>
-              <Text style={styles.propSubDark}>Property link</Text>
+              <Text style={styles.propSubOther}>Property</Text>
             </View>
+            <BubbleMeta time={time} isMine={false} />
           </View>
         )}
-        <View style={[styles.metaRow, isMine && styles.metaRowMine]}>
-          <Text style={styles.time}>{time}</Text>
-          {isMine && message.isRead ? <Icon name="check-all" size={14} color={TEAL} style={{ marginLeft: 4 }} /> : null}
-        </View>
       </View>
     );
   }
 
   if (isMine) {
     return (
-      <View style={[styles.row, styles.rowMine]}>
-        <View style={{ maxWidth: '86%', alignItems: 'flex-end' }}>
-          <LinearGradient colors={[PRIMARY, PRIMARY_END]} style={styles.bubbleMine}>
-            <Text style={styles.textMine}>{message.content}</Text>
-          </LinearGradient>
-          <View style={styles.metaRowMine}>
-            <Text style={styles.time}>{time}</Text>
-            {message.isRead ? (
-              <Icon name="check-all" size={14} color={TEAL} style={{ marginLeft: 4 }} />
-            ) : null}
-          </View>
-        </View>
+      <View style={[styles.row, styles.rowMine, { marginBottom }]}>
+        <LinearGradient colors={[CHAT.primary, CHAT.primaryEnd]} style={[styles.bubbleMine, radii]}>
+          <Text style={styles.textMine}>{message.content}</Text>
+          <BubbleMeta time={time} isMine isRead={message.isRead} light />
+        </LinearGradient>
       </View>
     );
   }
 
   return (
-    <View style={[styles.row, styles.rowOther]}>
-      <View style={{ maxWidth: '86%' }}>
-        <View style={styles.bubbleOther}>
-          <Text style={styles.textOther}>{message.content}</Text>
-        </View>
-        <Text style={[styles.time, styles.timeOther]}>{time}</Text>
+    <View style={[styles.row, styles.rowOther, { marginBottom }]}>
+      <View style={[styles.bubbleOther, radii]}>
+        <Text style={styles.textOther}>{message.content}</Text>
+        <BubbleMeta time={time} isMine={false} />
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  row: { width: '100%', marginBottom: 14, paddingHorizontal: 22 },
+  row: { width: '100%', paddingHorizontal: 8 },
   rowMine: { alignItems: 'flex-end' },
   rowOther: { alignItems: 'flex-start' },
   alignStart: { alignSelf: 'flex-start' },
   alignEnd: { alignSelf: 'flex-end' },
   bubbleMine: {
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 4,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    maxWidth: `${CHAT_BUBBLE.maxWidthPct * 100}%`,
+    paddingHorizontal: CHAT_BUBBLE.padH + 2,
+    paddingTop: CHAT_BUBBLE.padV + 2,
+    paddingBottom: CHAT_BUBBLE.padV,
   },
-  videoCardMine: {
-    maxWidth: '86%',
-    backgroundColor: PRIMARY_END,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  videoCardOther: {
-    maxWidth: '86%',
-    backgroundColor: SURFACE,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  linkHint: { fontSize: 10, color: MUTED, marginTop: 4 },
   bubbleOther: {
-    backgroundColor: SURFACE,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 18,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    maxWidth: `${CHAT_BUBBLE.maxWidthPct * 100}%`,
+    backgroundColor: CHAT.bubbleIn,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: CHAT.bubbleInBorder,
+    paddingHorizontal: CHAT_BUBBLE.padH + 2,
+    paddingTop: CHAT_BUBBLE.padV + 2,
+    paddingBottom: CHAT_BUBBLE.padV,
     shadowColor: '#000',
     shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
-  textMine: { color: '#fff', fontSize: 14, lineHeight: 20, fontWeight: '500' },
-  textOther: { color: '#1b1c1e', fontSize: 14, lineHeight: 20, fontWeight: '500' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  metaRowMine: { justifyContent: 'flex-end', alignSelf: 'flex-end' },
-  time: { fontSize: 10, color: MUTED, fontWeight: '600' },
-  timeMine: { alignSelf: 'flex-end' },
-  timeOther: { marginLeft: 4, marginTop: 4 },
+  textMine: { color: '#fff', fontSize: 15.5, lineHeight: 21 },
+  textOther: { color: CHAT.text, fontSize: 15.5, lineHeight: 21 },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 3,
+    gap: 3,
+  },
+  metaTime: { fontSize: 11, color: CHAT.muted, fontWeight: '500' },
+  metaTimeLight: { color: 'rgba(255,255,255,0.72)' },
+  metaCheck: { marginLeft: 1 },
+  videoMine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: `${CHAT_BUBBLE.maxWidthPct * 100}%`,
+    backgroundColor: CHAT.primaryEnd,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  videoOther: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: `${CHAT_BUBBLE.maxWidthPct * 100}%`,
+    backgroundColor: CHAT.bubbleIn,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: CHAT.bubbleInBorder,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
   deletedBubble: {
-    borderWidth: 1,
-    borderColor: 'rgba(196,198,206,0.45)',
-    borderRadius: 16,
-    paddingVertical: 10,
+    borderRadius: CHAT_BUBBLE.radiusLg,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.85)',
   },
-  deletedText: { fontSize: 13, fontStyle: 'italic', color: 'rgba(68,71,77,0.65)' },
-  mediaWrap: { maxWidth: '86%', borderRadius: 16, overflow: 'hidden', backgroundColor: SURFACE },
-  mediaImg: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#ddd' },
-  mediaCaption: { padding: 10 },
-  mediaCaptionText: { fontSize: 11, color: MUTED, fontWeight: '600' },
-  propCard: {
+  deletedText: { fontSize: 13, fontStyle: 'italic', color: CHAT.muted },
+  mediaOuter: { borderRadius: CHAT_BUBBLE.radiusLg },
+  mediaFrame: { overflow: 'hidden', backgroundColor: '#d0d4da', position: 'relative' },
+  mediaLoading: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(208,212,218,0.9)',
+    zIndex: 1,
+  },
+  mediaTimeOverlay: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    maxWidth: '92%',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 4,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
-  propCardFlat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    maxWidth: '92%',
-    backgroundColor: SURFACE,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+  mediaTimeText: { fontSize: 11, color: '#fff', fontWeight: '600' },
+  mediaError: { alignItems: 'center', justifyContent: 'center', gap: 6 },
+  mediaErrorText: { fontSize: 12, color: CHAT.muted },
+  captionBox: {
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    maxWidth: '100%',
   },
-  propIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  captionMine: { backgroundColor: 'rgba(0,21,46,0.08)', alignSelf: 'flex-end' },
+  captionOther: { backgroundColor: CHAT.bubbleIn, alignSelf: 'flex-start' },
+  captionText: { fontSize: 14, color: CHAT.text },
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.94)',
+    justifyContent: 'center',
+  },
+  previewClose: {
+    position: 'absolute',
+    top: 48,
+    right: 16,
+    zIndex: 2,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  propTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  propSub: { color: 'rgba(255,255,255,0.7)', fontSize: 10, marginTop: 2, fontWeight: '600' },
-  propTitleDark: { color: PRIMARY, fontSize: 14, fontWeight: '700' },
-  propSubDark: { color: MUTED, fontSize: 10, marginTop: 2, fontWeight: '600' },
+  previewImg: { width: '100%', height: '82%' },
+  propCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    maxWidth: `${CHAT_BUBBLE.maxWidthPct * 100}%`,
+    padding: 12,
+  },
+  propCardOther: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    maxWidth: `${CHAT_BUBBLE.maxWidthPct * 100}%`,
+    backgroundColor: CHAT.bubbleIn,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: CHAT.bubbleInBorder,
+    padding: 12,
+  },
+  propTextCol: { flex: 1, minWidth: 0 },
+  propTitleMine: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  propSubMine: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 2 },
+  propTitleOther: { color: CHAT.primary, fontSize: 14, fontWeight: '700' },
+  propSubOther: { color: CHAT.muted, fontSize: 11, marginTop: 2 },
 });
 
 export default ChatMessageBubble;

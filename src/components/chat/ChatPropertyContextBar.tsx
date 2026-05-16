@@ -1,16 +1,14 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
-
-const PRIMARY = '#00152e';
-const MUTED = '#44474d';
+import { CHAT } from './chatTheme';
 
 export interface ChatPropertyContextBarProps {
   title: string;
   price: number;
   listingType?: string | null;
-  /** e.g. locality — optional second line */
   subtitle?: string | null;
   thumbnailUrl?: string | null;
   onViewListing: () => void;
@@ -24,59 +22,48 @@ const ChatPropertyContextBar: React.FC<ChatPropertyContextBarProps> = ({
   thumbnailUrl,
   onViewListing,
 }) => (
-  <View style={styles.card}>
-    <View style={styles.left}>
-      <Image
-        source={{
-          uri: thumbnailUrl || PROPERTY_PLACEHOLDER_IMAGE,
-        }}
-        style={styles.thumb}
-      />
-      <View style={styles.textCol}>
-        <Text style={styles.title} numberOfLines={2}>
-          {title}
-        </Text>
-        <Text style={styles.sub} numberOfLines={1}>
-          {formatInrPrice(price, listingType || 'BUY')}
-          {subtitle ? ` • ${subtitle}` : ''}
-        </Text>
-      </View>
+  <TouchableOpacity style={styles.card} onPress={onViewListing} activeOpacity={0.9}>
+    <Image source={{ uri: thumbnailUrl || PROPERTY_PLACEHOLDER_IMAGE }} style={styles.thumb} />
+    <View style={styles.textCol}>
+      <Text style={styles.kicker}>Property chat</Text>
+      <Text style={styles.title} numberOfLines={1}>
+        {title}
+      </Text>
+      <Text style={styles.sub} numberOfLines={1}>
+        {formatInrPrice(price, listingType || 'BUY')}
+        {subtitle ? ` · ${subtitle}` : ''}
+      </Text>
     </View>
-    <TouchableOpacity style={styles.cta} onPress={onViewListing} activeOpacity={0.88}>
-      <Text style={styles.ctaText}>View listing</Text>
-    </TouchableOpacity>
-  </View>
+    <Icon name="chevron-right" size={22} color={CHAT.muted} />
+  </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 15,
+    marginHorizontal: 10,
+    marginTop: 6,
+    marginBottom: 4,
     padding: 10,
-    marginTop: 10,
     borderRadius: 12,
-    backgroundColor: '#f5f3f6',
+    backgroundColor: CHAT.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: CHAT.separator,
   },
-  left: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0, gap: 10 },
-  thumb: { width: 52, height: 52, borderRadius: 8, backgroundColor: '#e9e7ea' },
+  thumb: { width: 48, height: 48, borderRadius: 8, backgroundColor: CHAT.surfaceAlt },
   textCol: { flex: 1, minWidth: 0 },
-  title: { fontSize: 14, fontWeight: '700', color: PRIMARY },
-  sub: { fontSize: 12, color: MUTED, marginTop: 2, fontWeight: '500' },
-  cta: {
-    backgroundColor: PRIMARY,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
+  kicker: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: CHAT.gold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
   },
-  ctaText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+  title: { fontSize: 14, fontWeight: '700', color: CHAT.primary },
+  sub: { fontSize: 12, color: CHAT.muted, marginTop: 2 },
 });
 
 export default ChatPropertyContextBar;

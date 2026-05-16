@@ -18,6 +18,7 @@ import ChatInboxHeader from '../../components/chat/ChatInboxHeader';
 import ChatFilterChips, { type InboxFilter } from '../../components/chat/ChatFilterChips';
 import ChatSessionCard from '../../components/chat/ChatSessionCard';
 import ChatInboxSkeleton, { ChatInboxListFooterSkeleton } from '../../components/chat/ChatInboxSkeleton';
+import { CHAT } from '../../components/chat/chatTheme';
 import { connectChatSocket, getChatSocket } from '../../api/chatSocket';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
@@ -202,8 +203,9 @@ const ChatInboxScreen: React.FC = () => {
         data={filtered}
         keyExtractor={i => i.id}
         renderItem={({ item }) => <ChatSessionCard session={item} onPress={openThread} />}
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPad }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00152e" />}
+        contentContainerStyle={{ paddingBottom: bottomPad }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={CHAT.primary} />}
+        ItemSeparatorComponent={null}
         onEndReached={filter === 'all' ? loadMore : undefined}
         onEndReachedThreshold={0.3}
         ListFooterComponent={loadingMore ? <ChatInboxListFooterSkeleton /> : null}
@@ -219,8 +221,8 @@ const ChatInboxScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#faf9fc' },
-  list: { paddingHorizontal: 16, paddingTop: 8 },
+  safe: { flex: 1, backgroundColor: CHAT.surface },
+  list: {},
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   err: { fontSize: 15, color: '#44474d', textAlign: 'center', marginBottom: 16 },
   btn: { backgroundColor: '#00152e', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 999 },

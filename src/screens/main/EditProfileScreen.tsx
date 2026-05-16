@@ -102,19 +102,28 @@ const EditProfileScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const profile = user?.profile;
+
   const defaultValues = useMemo<FormValues>(() => {
-    const p = user?.profile;
-    const dob = p?.dateOfBirth ? new Date(p.dateOfBirth) : null;
+    const dob = profile?.dateOfBirth ? new Date(profile.dateOfBirth) : null;
     return {
-      firstName: p?.firstName ?? '',
-      lastName: p?.lastName ?? '',
-      bio: p?.bio ?? '',
-      gender: ((p?.gender as FormValues['gender']) || '') as FormValues['gender'],
+      firstName: profile?.firstName ?? '',
+      lastName: profile?.lastName ?? '',
+      bio: profile?.bio ?? '',
+      gender: ((profile?.gender as FormValues['gender']) || '') as FormValues['gender'],
       dateOfBirth: dob && !isNaN(dob.getTime()) ? dob : null,
-      occupation: p?.occupation ?? '',
-      city: p?.city ?? '',
+      occupation: profile?.occupation ?? '',
+      city: profile?.city ?? '',
     };
-  }, [user]);
+  }, [
+    profile?.firstName,
+    profile?.lastName,
+    profile?.bio,
+    profile?.gender,
+    profile?.dateOfBirth,
+    profile?.occupation,
+    profile?.city,
+  ]);
 
   const {
     control,
@@ -125,8 +134,10 @@ const EditProfileScreen: React.FC = () => {
     watch,
   } = useForm<FormValues>({ defaultValues });
 
+  // Sync from server when profile fields change (e.g. after /me refresh).
+  // Do not reset when only profileType/role changes — that would wipe in-progress edits.
   useEffect(() => {
-    reset(defaultValues);
+    reset(defaultValues, { keepDirtyValues: true });
   }, [defaultValues, reset]);
 
   useEffect(() => {
@@ -136,6 +147,10 @@ const EditProfileScreen: React.FC = () => {
   const bioValue = watch('bio') || '';
   const genderValue = watch('gender');
   const dob = watch('dateOfBirth');
+
+  const savedProfileType = user?.profileType ?? 'BUYER';
+  const isRoleDirty = profileType !== savedProfileType;
+  const canSave = isDirty || isRoleDirty;
 
   const displayName = useMemo(() => {
     const fn = user?.profile?.firstName ?? '';
@@ -170,17 +185,9 @@ const EditProfileScreen: React.FC = () => {
     }
   };
 
-  const onSelectRole = async (role: ProfileType) => {
+  const onSelectRole = (role: ProfileType) => {
     if (role === profileType) return;
-    const prev = profileType;
     setProfileType(role);
-    try {
-      const out = await updateMyProfileType(role);
-      patchUser({ profileType: out.profileType, role: out.role });
-    } catch (err) {
-      setProfileType(prev);
-      Toast.show({ type: 'error', text1: getApiErrorMessage(err) });
-    }
   };
 
   const onSubmit = handleSubmit(async values => {
@@ -188,27 +195,37 @@ const EditProfileScreen: React.FC = () => {
       Toast.show({ type: 'error', text1: 'First name is required' });
       return;
     }
+    if (!canSave) return;
+
     setSaving(true);
     try {
-      const payload = {
-        firstName: values.firstName.trim(),
-        lastName: values.lastName.trim(),
-        bio: values.bio.trim() || null,
-        gender: values.gender || null,
-        dateOfBirth: toISODateOnly(values.dateOfBirth),
-        occupation: values.occupation.trim() || null,
-        city: values.city.trim() || null,
-      };
-      const updated = await updateMyProfile(payload);
-      patchProfile({
-        firstName: updated.firstName,
-        lastName: updated.lastName,
-        bio: updated.bio,
-        gender: updated.gender,
-        dateOfBirth: updated.dateOfBirth,
-        occupation: updated.occupation,
-        city: updated.city,
-      });
+      if (isDirty) {
+        const payload = {
+          firstName: values.firstName.trim(),
+          lastName: values.lastName.trim(),
+          bio: values.bio.trim() || null,
+          gender: values.gender || null,
+          dateOfBirth: toISODateOnly(values.dateOfBirth),
+          occupation: values.occupation.trim() || null,
+          city: values.city.trim() || null,
+        };
+        const updated = await updateMyProfile(payload);
+        patchProfile({
+          firstName: updated.firstName,
+          lastName: updated.lastName,
+          bio: updated.bio,
+          gender: updated.gender,
+          dateOfBirth: updated.dateOfBirth,
+          occupation: updated.occupation,
+          city: updated.city,
+        });
+      }
+
+      if (isRoleDirty) {
+        const out = await updateMyProfileType(profileType);
+        patchUser({ profileType: out.profileType, role: out.role });
+      }
+
       Toast.show({ type: 'success', text1: 'Profile saved' });
       navigation.goBack();
     } catch (err) {
@@ -249,14 +266,14 @@ const EditProfileScreen: React.FC = () => {
           </View>
           <TouchableOpacity
             onPress={onSubmit}
-            disabled={!isDirty || saving}
+            disabled={!canSave || saving}
             activeOpacity={0.85}
             style={styles.headerSaveBtn}
           >
             <Text
               style={[
                 styles.headerSaveText,
-                (!isDirty || saving) && styles.headerSaveTextDisabled,
+                (!canSave || saving) && styles.headerSaveTextDisabled,
               ]}
             >
               {saving ? 'Saving…' : 'Save'}
@@ -612,8 +629,8 @@ const EditProfileScreen: React.FC = () => {
           <TouchableOpacity
             onPress={onSubmit}
             activeOpacity={0.85}
-            style={[styles.saveBtn, (!isDirty || saving) && styles.saveBtnDisabled]}
-            disabled={!isDirty || saving}
+            style={[styles.saveBtn, (!canSave || saving) && styles.saveBtnDisabled]}
+            disabled={!canSave || saving}
           >
             {saving ? (
               <ActivityIndicator color="#fff" />

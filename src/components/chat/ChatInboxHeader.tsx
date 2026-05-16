@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-
-const PRIMARY = '#00152e';
+import { CHAT } from './chatTheme';
 
 export interface ChatInboxHeaderProps {
   title: string;
@@ -20,10 +19,10 @@ const ChatInboxHeader: React.FC<ChatInboxHeaderProps> = ({ title, onSearchPress,
         accessibilityLabel="Search messages"
         hitSlop={8}
       >
-        <Icon name="magnify" size={22} color={PRIMARY} />
+        <Icon name="magnify" size={22} color={CHAT.primary} />
       </TouchableOpacity>
       <TouchableOpacity onPress={onMorePress} style={styles.iconBtn} accessibilityLabel="More" hitSlop={8}>
-        <Icon name="dots-vertical" size={22} color={PRIMARY} />
+        <Icon name="dots-vertical" size={22} color={CHAT.primary} />
       </TouchableOpacity>
     </View>
   </View>
@@ -34,32 +33,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 22,
-    paddingTop: 8,
-    paddingBottom: 12,
-    backgroundColor: 'rgba(250,249,252,0.92)',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    backgroundColor: CHAT.headerBg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: CHAT.separator,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOpacity: 0.04,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 1 },
       },
-      android: { elevation: 0 },
+      android: { elevation: 1 },
     }),
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
-    color: PRIMARY,
-    letterSpacing: -0.5,
+    color: CHAT.primary,
+    letterSpacing: -0.3,
   },
-  actions: { flexDirection: 'row', gap: 8 },
+  actions: { flexDirection: 'row', gap: 4 },
   iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    backgroundColor: '#e3e2e5',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
