@@ -50,11 +50,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 14,
     borderWidth: 1,
-    borderColor: 'rgba(196,198,206,0.15)',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
+    borderColor: 'rgba(196,198,206,0.25)',
   },
   thumbnail: {
     width: 88,

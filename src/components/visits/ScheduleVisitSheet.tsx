@@ -4,13 +4,13 @@ import {
   Text,
   Pressable,
   ActivityIndicator,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   Modal,
   Animated,
   Easing,
   Dimensions,
+  StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Calendar } from 'react-native-calendars';
@@ -175,8 +175,8 @@ export default function ScheduleVisitSheet({ visible, onClose, onConfirm }: Sche
               style={{ borderRadius: 16 }}
             />
 
-            <Text className="mt-8 text-lg font-extrabold tracking-tight text-primary">Select Time</Text>
-            <View className="mt-4">
+            <Text className="mt-6 text-lg font-extrabold tracking-tight text-primary">Select Time</Text>
+            <View style={sheetStyles.timeChips}>
               <ScheduleVisitTimeChips
                 slots={DEFAULT_TIME_SLOTS}
                 selectedId={selectedSlot?.id ?? null}
@@ -197,25 +197,33 @@ export default function ScheduleVisitSheet({ visible, onClose, onConfirm }: Sche
             /> */}
           </View>
 
-          {/* Action bar */}
-          <View className="flex-row gap-4 px-8 pb-8 pt-4">
+          {/* Action bar — match property detail / edit profile button sizing */}
+          <View style={sheetStyles.actions}>
             <Pressable
               onPress={doConfirm}
               disabled={busy}
-              className="flex-1 items-center justify-center rounded-2xl border-2 bg-primary"
+              style={({ pressed }) => [
+                sheetStyles.btnPrimary,
+                pressed && sheetStyles.btnPressed,
+                busy && sheetStyles.btnDisabled,
+              ]}
             >
               {busy ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text className="text-base font-extrabold tracking-wide text-white">Confirm Visit</Text>
+                <Text style={sheetStyles.btnPrimaryText}>Confirm Visit</Text>
               )}
             </Pressable>
             <Pressable
               onPress={close}
               disabled={busy}
-              className="flex-1 flex-row items-center justify-center rounded-2xl border border-outline-variant bg-white py-4 active:bg-surface-container-low"
+              style={({ pressed }) => [
+                sheetStyles.btnSecondary,
+                pressed && sheetStyles.btnPressed,
+                busy && sheetStyles.btnDisabled,
+              ]}
             >
-              <Text className="text-base font-extrabold tracking-wide text-primary">Cancel</Text>
+              <Text style={sheetStyles.btnSecondaryText}>Cancel</Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -223,6 +231,65 @@ export default function ScheduleVisitSheet({ visible, onClose, onConfirm }: Sche
     </Modal>
   );
 }
+
+const sheetStyles = StyleSheet.create({
+  timeChips: {
+    marginTop: 14,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  btnPrimary: {
+    flex: 1,
+    minHeight: 48,
+    maxHeight: 56,
+    borderRadius: 16,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  btnSecondary: {
+    flex: 1,
+    minHeight: 48,
+    maxHeight: 56,
+    marginLeft: 12,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: PRIMARY,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  btnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  btnSecondaryText: {
+    color: PRIMARY,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  btnPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
+  },
+  btnDisabled: {
+    opacity: 0.55,
+  },
+});
 
 export { combineLocalDateTimeISO };
 

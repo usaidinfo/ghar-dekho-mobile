@@ -73,11 +73,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F3F6',
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(196,198,206,0.35)',
   },
   imageContainer: {
     height: 180,
