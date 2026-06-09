@@ -11,16 +11,21 @@ import type { NearbyProperty } from '../../types/property.types';
 
 interface NearbySectionProps {
   data: NearbyProperty[];
+  locationName?: string | null;
   onCardPress?: (property: NearbyProperty) => void;
   onViewAll?: () => void;
 }
 
-const NearbySection: React.FC<NearbySectionProps> = ({ data, onCardPress, onViewAll }) => {
+const NearbySection: React.FC<NearbySectionProps> = ({ data, locationName, onCardPress, onViewAll }) => {
+  const displayName = locationName
+    ? locationName.split(',')[0]?.trim()
+    : null;
+
   return (
     <View style={styles.wrapper}>
       <SectionHeader
-        title="Near Your Property"
-        subtitle="Listings in your preferred vicinity"
+        title={displayName ? `Near ${displayName}` : 'Near Your Property'}
+        subtitle={displayName ? `Properties around ${displayName}` : 'Listings in your preferred vicinity'}
         onViewAll={onViewAll}
       />
       <FlatList

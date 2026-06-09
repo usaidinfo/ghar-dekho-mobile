@@ -17,7 +17,6 @@ import {
   propertyToTopListing,
 } from '../utils/homePropertyMappers';
 
-/** Bengaluru — used as map anchor when GPS is not wired yet */
 const DEFAULT_MAP_LAT = 12.9716;
 const DEFAULT_MAP_LNG = 77.5946;
 const DEFAULT_TOP_CITY = 'Bengaluru';
@@ -52,7 +51,31 @@ function collectListItems(
   return dedupeById([...featured, ...hotDealProperties, ...feed]);
 }
 
-export function useHomeData(selectedCategory: PropertyCategory): UseHomeDataResult {
+/**
+ * Extract a usable city name from the location label.
+ * LocationSearchModal stores names like "Gomti Nagar, Lucknow, Uttar Pradesh"
+ * or "Bhopal, Madhya Pradesh". We want the city part for DB filtering.
+ */
+function extractCity(locationName: string | null | undefined): string | undefined {
+  if (!locationName) return undefined;
+  const parts = locationName.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length === 0) return undefined;
+  if (parts.length === 1) return parts[0];
+  // "Locality, City, State" → return City
+  // "City, State" → return City (first part)
+  return parts.length >= 3 ? parts[1] : parts[0];
+}
+
+export function useHomeData(
+  selectedCategory: PropertyCategory,
+  userLat?: number | null,
+  userLng?: number | null,
+  locationName?: string | null,
+): UseHomeDataResult {
+  const lat = userLat ?? DEFAULT_MAP_LAT;
+  const lng = userLng ?? DEFAULT_MAP_LNG;
+  const city = useMemo(() => extractCity(locationName), [locationName]);
+
   const listFilters = useMemo(() => homeCategoryToApiFilters(selectedCategory), [selectedCategory]);
   const nearbyParams = useMemo(() => homeCategoryToNearbyParams(selectedCategory), [selectedCategory]);
 
@@ -78,12 +101,13 @@ export function useHomeData(selectedCategory: PropertyCategory): UseHomeDataResu
             page: 1,
             limit: 24,
             sort: 'newest',
+            ...(city ? { city } : {}),
             ...listFilters,
           }),
           fetchNearbyProperties({
-            lat: DEFAULT_MAP_LAT,
-            lng: DEFAULT_MAP_LNG,
-            radius: 35,
+            lat,
+            lng,
+            radius: 50,
             ...nearbyParams,
           }),
         ]);
@@ -115,31 +139,54 @@ export function useHomeData(selectedCategory: PropertyCategory): UseHomeDataResu
 
         setRecommended(merged.slice(0, 12).map(propertyToProject));
 
-        const nearbyRaw =
+        let nearbyRaw =
           nearbyResult.status === 'fulfilled' ? nearbyResult.value : [];
+
+        // Fallback: if no nearby properties found, try a wider radius
+        if (nearbyRaw.length === 0 && nearbyResult.status === 'fulfilled') {
+          try {
+            nearbyRaw = await fetchNearbyProperties({
+              lat,
+              lng,
+              radius: 150,
+              ...nearbyParams,
+            });
+          } catch {
+            // keep empty
+          }
+        }
+
         setNearby(
           nearbyRaw
-            .map((p) => nearbyApiToCard(p, DEFAULT_MAP_LAT, DEFAULT_MAP_LNG))
+            .map((p) => nearbyApiToCard(p, lat, lng))
             .sort((a, b) => a.distanceKm - b.distanceKm)
             .slice(0, 12),
         );
 
-        const city =
-          feed[0]?.city ??
-          featuredPayload.featured?.[0]?.city ??
-          hotProps[0]?.city ??
-          DEFAULT_TOP_CITY;
-        setTopListingsCity(city);
+        const displayCity = city ?? feed[0]?.city ?? hotProps[0]?.city ?? DEFAULT_TOP_CITY;
+        setTopListingsCity(displayCity);
 
         try {
           const topRes = await fetchProperties({
             page: 1,
             limit: 12,
             sort: 'popular',
-            city,
+            city: displayCity,
             ...listFilters,
           });
-          setTopListings((topRes.data ?? []).map(propertyToTopListing));
+          const topData = (topRes.data ?? []).map(propertyToTopListing);
+          // If city-filtered top returns nothing, show unfiltered fallback
+          if (topData.length === 0) {
+            const fallbackTop = await fetchProperties({
+              page: 1,
+              limit: 12,
+              sort: 'popular',
+              ...listFilters,
+            });
+            setTopListings((fallbackTop.data ?? []).map(propertyToTopListing));
+          } else {
+            setTopListings(topData);
+          }
         } catch {
           setTopListings(feed.slice(0, 10).map(propertyToTopListing));
         }
@@ -154,7 +201,7 @@ export function useHomeData(selectedCategory: PropertyCategory): UseHomeDataResu
         setRefreshing(false);
       }
     },
-    [listFilters, nearbyParams],
+    [listFilters, nearbyParams, lat, lng, city],
   );
 
   useEffect(() => {

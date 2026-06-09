@@ -8,6 +8,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   View,
   Image,
+  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -24,12 +25,13 @@ const NAVY = '#122A47';
 const SURFACE = '#F1F3F5';
 
 export interface HomeHeaderProps {
-  onMenuPress?: () => void;
+  onLocationPress?: () => void;
+  locationName?: string | null;
   /** Called when user submits the search field (return key) */
   onSubmitSearch: (query: string) => void;
 }
 
-const HomeHeader: React.FC<HomeHeaderProps> = ({ onMenuPress, onSubmitSearch }) => {
+const HomeHeader: React.FC<HomeHeaderProps> = ({ onLocationPress, locationName, onSubmitSearch }) => {
   const progress = useRef(new Animated.Value(0)).current;
   const [expanded, setExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -169,8 +171,13 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ onMenuPress, onSubmitSearch }) 
             <Icon name="magnify" size={24} color={NAVY} />
           </TouchableOpacity>
         ) : null}
-        <TouchableOpacity onPress={onMenuPress} activeOpacity={0.7} style={styles.iconBtn} accessibilityLabel="Menu">
-          <Icon name="menu" size={24} color={NAVY} />
+        <TouchableOpacity onPress={onLocationPress} activeOpacity={0.7} style={styles.locationBtn} accessibilityLabel="Change location">
+          <Icon name="map-marker-outline" size={20} color={NAVY} />
+          {locationName ? (
+            <Text style={styles.locationLabel} numberOfLines={1}>
+              {locationName}
+            </Text>
+          ) : null}
         </TouchableOpacity>
       </View>
     </View>
@@ -263,6 +270,22 @@ const styles = StyleSheet.create({
   iconBtn: {
     padding: 8,
     borderRadius: 999,
+  },
+  locationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    backgroundColor: SURFACE,
+    maxWidth: 140,
+  },
+  locationLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: NAVY,
+    flexShrink: 1,
   },
 });
 

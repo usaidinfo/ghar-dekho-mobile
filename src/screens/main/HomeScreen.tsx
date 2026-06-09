@@ -4,7 +4,7 @@
  * Data: useHomeData → GET /api/properties/featured, /properties, /nearby.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -26,8 +26,11 @@ import ProjectCarousel from '../../components/home/ProjectCarousel';
 import NearbySection from '../../components/home/NearbySection';
 import TopListingsSection from '../../components/home/TopListingsSection';
 import HomeScreenSkeleton from '../../components/home/skeletons/HomeScreenSkeleton';
+import LocationSearchModal from '../../components/home/LocationSearchModal';
 
 import { useHomeData } from '../../hooks/useHomeData';
+import { useUserLocation } from '../../hooks/useUserLocation';
+import { useLocationStore } from '../../stores/location.store';
 import type { PropertyCategory, Project, NearbyProperty, TopListing } from '../../types/property.types';
 import type { MainStackParamList } from '../../navigation/types';
 
@@ -37,6 +40,28 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeNavProp>();
   const insets = useSafeAreaInsets();
   const [selectedCategory, setSelectedCategory] = useState<PropertyCategory>('Buy');
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+
+  const userLat = useLocationStore(s => s.latitude);
+  const userLng = useLocationStore(s => s.longitude);
+  const locationName = useLocationStore(s => s.locationName);
+  const locationHydrated = useLocationStore(s => s.hasHydrated);
+  const setLocation = useLocationStore(s => s.setLocation);
+
+  const { detect } = useUserLocation();
+  const autoDetectDone = useRef(false);
+
+  useEffect(() => {
+    if (!locationHydrated || autoDetectDone.current) return;
+    if (userLat !== null && userLng !== null) {
+      autoDetectDone.current = true;
+      return;
+    }
+    autoDetectDone.current = true;
+    detect().then(loc => {
+      if (loc) setLocation(loc.latitude, loc.longitude, loc.name);
+    });
+  }, [locationHydrated, userLat, userLng, detect, setLocation]);
 
   const {
     hero,
@@ -48,7 +73,7 @@ const HomeScreen: React.FC = () => {
     refreshing,
     error,
     refetch,
-  } = useHomeData(selectedCategory);
+  } = useHomeData(selectedCategory, userLat, userLng, locationName);
 
   const handleListingPress = useCallback(
     (propertyId: string) => {
@@ -89,7 +114,11 @@ const HomeScreen: React.FC = () => {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#faf9fc" />
 
-      <HomeHeader onSubmitSearch={onSubmitHeaderSearch} />
+      <HomeHeader
+        onSubmitSearch={onSubmitHeaderSearch}
+        onLocationPress={() => setLocationModalVisible(true)}
+        locationName={locationName}
+      />
 
       {loading && !refreshing ? (
         <HomeScreenSkeleton />
@@ -131,7 +160,7 @@ const HomeScreen: React.FC = () => {
           )}
 
           {nearby.length > 0 ? (
-            <NearbySection data={nearby} onCardPress={handleNearbyPress} onViewAll={goSearch} />
+            <NearbySection data={nearby} locationName={locationName} onCardPress={handleNearbyPress} onViewAll={goSearch} />
           ) : null}
 
           {topListings.length > 0 ? (
@@ -143,6 +172,10 @@ const HomeScreen: React.FC = () => {
           ) : null}
         </ScrollView>
       )}
+      <LocationSearchModal
+        visible={locationModalVisible}
+        onClose={() => setLocationModalVisible(false)}
+      />
     </View>
   );
 };

@@ -68,6 +68,27 @@ export async function fetchNearbyProperties(
   return [];
 }
 
+export interface SearchSuggestion {
+  type: 'city' | 'locality' | 'property';
+  label: string;
+  count?: number;
+  id?: string;
+  city?: string;
+}
+
+export async function fetchSearchSuggestions(query: string): Promise<SearchSuggestion[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const { data: body } = await httpClient.get<ApiSuccess<SearchSuggestion[]>>(
+    '/api/properties/suggestions',
+    { params: { q } },
+  );
+  if (body.success && Array.isArray(body.data)) {
+    return body.data;
+  }
+  return [];
+}
+
 export type MyListingsParams = {
   page?: number;
   limit?: number;
