@@ -20,3 +20,28 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+subprojects { project ->
+    def configureProject = {
+        if (project.plugins.hasPlugin('com.android.application') || 
+            project.plugins.hasPlugin('com.android.library')) {
+            project.android {
+                if (externalNativeBuild.cmake.path != null) {
+                    externalNativeBuild {
+                        cmake {
+                            buildStagingDirectory = file("C:/tmp_gradle/cxx/${project.name}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (project.state.executed) {
+        configureProject()
+    } else {
+        project.afterEvaluate {
+            configureProject()
+        }
+    }
+}
+
