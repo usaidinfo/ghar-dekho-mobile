@@ -11,6 +11,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import HomeScreen from '../screens/main/HomeScreen';
+import MembershipScreen from '../screens/main/MembershipScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import type { BottomTabParamList } from './types';
 
@@ -24,7 +25,6 @@ const Placeholder: React.FC<{ label: string }> = ({ label }) => (
   </View>
 );
 
-const MembershipScreen = () => <Placeholder label="Membership" />;
 const HistoryScreen = () => <Placeholder label="History" />;
 
 type TabName = keyof BottomTabParamList;
