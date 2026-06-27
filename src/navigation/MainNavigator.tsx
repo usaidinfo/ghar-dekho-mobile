@@ -19,6 +19,7 @@ import PostPropertyScreen from '../screens/main/PostPropertyScreen';
 import MyVisitsScreen from '../screens/main/MyVisitsScreen';
 import VisitScheduledScreen from '../screens/main/VisitScheduledScreen';
 import EditProfileScreen from '../screens/main/EditProfileScreen';
+import AgentNavigator from './AgentNavigator';
 
 import type { MainStackParamList, AuthStackParamList } from './types';
 
@@ -84,6 +85,11 @@ function AppNavigator() {
       <AppStack.Screen name="ChatThread" component={ChatThreadScreen} />
       <AppStack.Screen name="Notifications" component={NotificationsScreen} />
       <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <AppStack.Screen
+        name="AgentDashboard"
+        component={AgentNavigator}
+        options={{ animation: 'slide_from_right' }}
+      />
     </AppStack.Navigator>
   );
 }

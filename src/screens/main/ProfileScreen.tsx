@@ -174,7 +174,7 @@ const ProfileScreen: React.FC = () => {
             agencyName="Heritage Realty"
             rating="4.8"
             reviewCountLabel="(240 reviews)"
-            onAgentDashboard={() => navigation.navigate('PostProperty')}
+            onAgentDashboard={() => navigation.navigate('AgentDashboard')}
           />
         ) : null}
 

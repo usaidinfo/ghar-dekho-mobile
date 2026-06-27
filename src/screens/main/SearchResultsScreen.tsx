@@ -28,6 +28,8 @@ import { homeCategoryToApiFilters, formatInrPrice } from '../../utils/homeProper
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 import SearchHeader from '../../components/search/SearchHeader';
 import type { SearchFiltersState } from '../../components/search/SearchFiltersPanel';
+import AppBannerAd from '../../components/ads/AppBannerAd';
+import { useInterstitialAd } from '../../hooks/useInterstitialAd';
 import SearchFiltersModal from '../../components/search/SearchFiltersModal';
 
 const NAVY = '#122A47';
@@ -49,6 +51,7 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 const SearchResultsScreen: React.FC<Props> = () => {
   const route = useRoute<Props['route']>();
   const navigation = useNavigation<Nav>();
+  const { tryShowInterstitial, trackAction } = useInterstitialAd();
 
   const routeQuery = route.params?.query ?? '';
   const routeCategory = parseCategory(route.params?.category);
@@ -212,7 +215,11 @@ const SearchResultsScreen: React.FC<Props> = () => {
       return (
         <TouchableOpacity
           style={styles.card}
-          onPress={() => navigation.navigate('PropertyDetail', { propertyId: item.id })}
+          onPress={() => {
+            trackAction();
+            tryShowInterstitial();
+            navigation.navigate('PropertyDetail', { propertyId: item.id });
+          }}
           activeOpacity={0.88}
         >
           <Image source={{ uri: img }} style={styles.thumb} resizeMode="cover" />
@@ -319,7 +326,11 @@ const SearchResultsScreen: React.FC<Props> = () => {
           loadingMore ? (
             <ActivityIndicator style={{ marginVertical: 16 }} color={NAVY} />
           ) : (
-            <View style={{ height: 24 }} />
+            <>
+              {/* Banner ad at the bottom of the results list — free users only */}
+              <AppBannerAd containerStyle={{ marginTop: 8, marginBottom: 4 }} />
+              <View style={{ height: 16 }} />
+            </>
           )
         }
         ListEmptyComponent={

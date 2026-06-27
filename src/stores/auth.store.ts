@@ -25,7 +25,6 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
-/** Map a backend `/api/users/me` response into the lighter `AuthUser` used by the store. */
 function currentUserToAuthUser(curr: CurrentUser): AuthUser {
   return {
     id: curr.id,
@@ -35,6 +34,11 @@ function currentUserToAuthUser(curr: CurrentUser): AuthUser {
     profileType: curr.profileType,
     isEmailVerified: curr.isEmailVerified,
     isPhoneVerified: curr.isPhoneVerified,
+    // Propagate adsEnabled so useShouldShowAds() can read it from the store
+    // without an extra network call.
+    adsEnabled: (curr as unknown as { adsEnabled?: boolean }).adsEnabled,
+    // Propagate lightweight membership status for ad gating.
+    membership: curr.membership ? { status: curr.membership.status } : null,
     profile: curr.profile
       ? {
           id: curr.profile.id,

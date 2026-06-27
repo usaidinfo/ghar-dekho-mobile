@@ -1,5 +1,35 @@
 import type { ProfileType } from './auth.types';
 
+import type { MembershipAccountType, MembershipPlanTier } from './membership.types';
+
+export interface UserMembershipLimits {
+  maxListings: number;
+  maxPhotos: number;
+  maxVideos: number;
+  maxBoostsPerMonth?: number;
+  hasVerifiedBadge?: boolean;
+  hasFeaturedListing?: boolean;
+  hasTopSearch?: boolean;
+}
+
+export interface UserMembershipUsage {
+  activeListings: number;
+}
+
+export interface UserMembership {
+  status: string;
+  expiresAt: string | null;
+  verifiedBadge: boolean;
+  accountType: MembershipAccountType | null;
+  planTier: MembershipPlanTier | null;
+  planId: string | null;
+  planName: string | null;
+  priceInr: number | null;
+  planDays: number | null;
+  limits: UserMembershipLimits | null;
+  usage: UserMembershipUsage | null;
+}
+
 export interface AgentProfileSummary {
   id: string;
   agencyName: string | null;
@@ -58,6 +88,10 @@ export interface CurrentUser {
   kycStatus: string | null;
   profile: CurrentUserProfile | null;
   agentProfile: AgentProfileSummary | null;
+  membership?: UserMembership | null;
+  membershipStatus?: string | null;
+  membershipExpiresAt?: string | null;
+  verifiedBadge?: boolean;
   _count: {
     ownedProperties: number;
     wishlists: number;

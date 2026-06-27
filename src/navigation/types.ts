@@ -59,4 +59,24 @@ export type MainStackParamList = {
   EditProfile: undefined;
   AdvisorAI: undefined;
   NeighborhoodDetail: { neighborhoodId: string };
+  /** Agent dashboard — full-screen mode with its own bottom tabs. */
+  AgentDashboard: NavigatorScreenParams<AgentTabParamList> | undefined;
+};
+
+/** Agent bottom tab routes. */
+export type AgentTabParamList = {
+  AgentHome: undefined;
+  AgentLeads: undefined;
+  AgentListings: undefined;
+  AgentAnalytics: undefined;
+  AgentMore: undefined;
+};
+
+/** Agent stack — nested inside AgentDashboard screen. */
+export type AgentStackParamList = {
+  AgentTabs: NavigatorScreenParams<AgentTabParamList> | undefined;
+  AgentLeadDetail: { leadId: string };
+  AgentListingPerformance: { listingId: string };
+  AgentTeam: undefined;
+  AgentAgencyProfile: undefined;
 };

@@ -34,6 +34,7 @@
     "react-native-config": "^1.5.5",
     "react-native-date-picker": "5.0.12",
     "react-native-gesture-handler": "^2.25.0",
+    "react-native-google-mobile-ads": "^15.8.3",
     "react-native-image-picker": "^8.2.1",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-pager-view": "^6.9.1",
@@ -48,6 +49,7 @@
     "react-native-vector-icons": "^10.3.0",
     "reactotron-react-native": "^5.1.13",
     "socket.io-client": "^4.8.3",
+    "use-deep-compare-effect": "^1.8.1",
     "zustand": "^4.5.7"
   },
   "devDependencies": {

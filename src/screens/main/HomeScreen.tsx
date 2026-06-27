@@ -27,6 +27,7 @@ import NearbySection from '../../components/home/NearbySection';
 import TopListingsSection from '../../components/home/TopListingsSection';
 import HomeScreenSkeleton from '../../components/home/skeletons/HomeScreenSkeleton';
 import LocationSearchModal from '../../components/home/LocationSearchModal';
+import AppBannerAd from '../../components/ads/AppBannerAd';
 
 import { useHomeData } from '../../hooks/useHomeData';
 import { useUserLocation } from '../../hooks/useUserLocation';
@@ -170,6 +171,9 @@ const HomeScreen: React.FC = () => {
               onItemPress={handleTopListingPress}
             />
           ) : null}
+
+          {/* Banner ad — only visible to free users; hidden for paid members */}
+          <AppBannerAd containerStyle={styles.bannerAd} />
         </ScrollView>
       )}
       <LocationSearchModal
@@ -225,6 +229,10 @@ const styles = StyleSheet.create({
   emptySub: {
     fontSize: 13,
     color: '#777779',
+  },
+  bannerAd: {
+    marginTop: 8,
+    marginBottom: 8,
   },
 });
 

@@ -2,8 +2,18 @@ import type { CurrentUser } from '../types/user.types';
 import type { LocalMembership } from '../stores/membership.store';
 import { isLocalMembershipActive } from '../stores/membership.store';
 
-/** Active subscription from backend `/api/users/me` agent profile. */
+function isUserMembershipBlockActive(user: CurrentUser | null | undefined): boolean {
+  const m = user?.membership;
+  if (!m || m.status?.toUpperCase() !== 'ACTIVE') return false;
+  if (!m.expiresAt) return true;
+  return new Date(m.expiresAt) > new Date();
+}
+
+/** Active subscription from backend `/api/users/me` membership block. */
 export function isMembershipActiveFromApi(user: CurrentUser | null | undefined): boolean {
+  if (isUserMembershipBlockActive(user)) return true;
+
+  // Legacy fallback: agent profile subscription fields
   if (!user?.agentProfile) return false;
   const { subscriptionStatus, subscriptionExpiresAt } = user.agentProfile;
   if (subscriptionStatus?.toUpperCase() !== 'ACTIVE') return false;
@@ -25,8 +35,11 @@ export function resolveMembershipExpiresAt(
   user: CurrentUser | null | undefined,
   localMembership?: LocalMembership | null,
 ): string | null {
+  if (isUserMembershipBlockActive(user)) {
+    return user?.membership?.expiresAt ?? null;
+  }
   if (isMembershipActiveFromApi(user)) {
-    return user?.agentProfile?.subscriptionExpiresAt ?? null;
+    return user?.agentProfile?.subscriptionExpiresAt ?? user?.membershipExpiresAt ?? null;
   }
   if (isLocalMembershipActive(localMembership)) {
     return localMembership?.expiresAt ?? null;
@@ -38,10 +51,26 @@ export function resolveMembershipPlanDays(
   user: CurrentUser | null | undefined,
   localMembership?: LocalMembership | null,
 ): number {
+  if (user?.membership?.planDays) {
+    return user.membership.planDays;
+  }
   if (isLocalMembershipActive(localMembership) && localMembership?.planDays) {
     return localMembership.planDays;
   }
   return 30;
+}
+
+export function resolveMembershipPlanLabel(
+  user: CurrentUser | null | undefined,
+  localMembership?: LocalMembership | null,
+): string | null {
+  if (user?.membership?.planName) {
+    return user.membership.planName;
+  }
+  if (localMembership?.planLabel) {
+    return localMembership.planLabel;
+  }
+  return null;
 }
 
 export function formatMembershipExpiry(iso: string | null | undefined): string | null {

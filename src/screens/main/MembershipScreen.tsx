@@ -1,6 +1,6 @@
 /**
  * @file MembershipScreen.tsx
- * @description Membership tab — upgrade pitch when inactive; status when premium is active.
+ * @description Membership tab — account type → plans when inactive; status when subscribed.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,16 +25,19 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
 
-import { userService } from '../../services';
+import MembershipAccountTypeStep from '../../components/membership/MembershipAccountTypeStep';
+import MembershipPlansStep from '../../components/membership/MembershipPlansStep';
+import { getAccountTypeDefinition } from '../../constants/membershipPlans';
+import { membershipService, userService } from '../../services';
 import { useAuthStore } from '../../stores/auth.store';
 import {
-  MEMBERSHIP_PLAN_DAYS,
-  MEMBERSHIP_PLAN_PRICE_INR,
+  formatPlanCheckoutLabel,
   isLocalMembershipActive,
-  simulateMembershipPayment,
   useMembershipStore,
 } from '../../stores/membership.store';
+import type { ActivateMembershipOptions } from '../../stores/membership.store';
 import type { BottomTabParamList, MainStackParamList } from '../../navigation/types';
+import type { MembershipAccountType, MembershipPlanDefinition } from '../../types/membership.types';
 import type { CurrentUser } from '../../types/user.types';
 import {
   formatMembershipExpiry,
@@ -45,6 +48,7 @@ import {
   isMembershipExpiringSoon,
   resolveMembershipExpiresAt,
   resolveMembershipPlanDays,
+  resolveMembershipPlanLabel,
 } from '../../utils/membership';
 
 const PRIMARY = '#00152e';
@@ -85,233 +89,39 @@ type MembershipNav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>
 >;
 
-const HERO_BENEFITS = [
-  { icon: 'home-plus', label: 'Unlimited posting' },
-  { icon: 'phone', label: 'Full contact access' },
-  { icon: 'check-decagram', label: 'Verified badge' },
-] as const;
+type MembershipFlowStep = 'account-type' | 'plans';
 
-const COMPARISON_ROWS = [
-  {
-    feature: 'Browse',
-    free: { type: 'text' as const, value: 'Limited' },
-    premium: { type: 'check' as const },
-  },
-  {
-    feature: 'Contact',
-    free: { type: 'lock' as const },
-    premium: { type: 'text' as const, value: 'Call + WhatsApp' },
-  },
-  {
-    feature: 'Post',
-    free: { type: 'text' as const, value: 'Not allowed' },
-    premium: { type: 'check' as const },
-  },
-  {
-    feature: 'Ads',
-    free: { type: 'text' as const, value: 'Banner' },
-    premium: { type: 'text' as const, value: 'No Ads', bold: true, uppercase: true },
-  },
-];
-
-const PLAN_FEATURES = [
-  'Unlimited posts',
-  'No ads',
-  'Verified badge',
-  'Boost listings',
-] as const;
-
-const FAQ_ITEMS = [
-  {
-    q: 'What happens after pay?',
-    a: "Your account is instantly upgraded to Premium. You'll receive a confirmation email and the \"Verified\" badge will appear on your profile. You can start posting immediately.",
-  },
-  {
-    q: 'Can I post without membership?',
-    a: 'Currently, property listing is exclusive to our Premium Members to ensure a high-quality, verified marketplace for all users.',
-  },
-] as const;
-
-function ComparisonCell({
-  cell,
-}: {
-  cell: (typeof COMPARISON_ROWS)[number]['free'];
-}) {
-  if (cell.type === 'check') {
-    return (
-      <View style={styles.cellCenter}>
-        <Icon name="check-circle" size={22} color={TEAL_ACCENT} />
-      </View>
-    );
-  }
-  if (cell.type === 'lock') {
-    return (
-      <View style={styles.cellCenter}>
-        <Icon name="lock" size={22} color="#74777e" />
-      </View>
-    );
-  }
-  return (
-    <Text
-      style={[
-        styles.compareFreeText,
-        cell.bold && styles.comparePremiumText,
-        cell.bold && { color: TEAL_ACCENT },
-      ]}
-    >
-      {cell.value}
-    </Text>
-  );
+function buildCheckoutOptions(
+  accountType: MembershipAccountType,
+  plan: MembershipPlanDefinition,
+): ActivateMembershipOptions {
+  const account = getAccountTypeDefinition(accountType);
+  return {
+    accountType,
+    planTier: plan.tier,
+    priceInr: plan.priceInr,
+    planDays: plan.validityDays,
+    planLabel: formatPlanCheckoutLabel(account, plan),
+  };
 }
 
-interface FaqAccordionProps {
-  items: readonly { q: string; a: string }[];
+function buildRenewSummary(user: CurrentUser | null): {
+  planLabel: string;
+  priceInr: number;
+  planDays: number;
+} {
+  const m = user?.membership;
+  return {
+    planLabel: m?.planName ?? 'Membership',
+    priceInr: m?.priceInr ?? 999,
+    planDays: m?.planDays ?? 30,
+  };
 }
-
-const FaqAccordion: React.FC<FaqAccordionProps> = ({ items }) => {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-  return (
-    <View style={styles.faqList}>
-      {items.map((item, index) => {
-        const open = openIndex === index;
-        return (
-          <View key={item.q} style={styles.faqCard}>
-            <TouchableOpacity
-              style={styles.faqHeader}
-              onPress={() => setOpenIndex(open ? null : index)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.faqQuestion}>{item.q}</Text>
-              <Icon
-                name="chevron-down"
-                size={22}
-                color={PRIMARY}
-                style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}
-              />
-            </TouchableOpacity>
-            {open ? <Text style={styles.faqAnswer}>{item.a}</Text> : null}
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
-interface UpgradeContentProps {
-  onUpgrade: () => void;
-  paying: boolean;
-}
-
-const MembershipUpgradeContent: React.FC<UpgradeContentProps> = ({ onUpgrade, paying }) => (
-  <>
-    <View style={styles.headerSection}>
-      <Text style={styles.pageTitle}>Ghar Dekho Membership</Text>
-      <Text style={styles.pageSubtitle}>Unlock full access to buy, sell, and connect</Text>
-    </View>
-
-    <LinearGradient colors={[...GRADIENT]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
-      <Icon name="crown" size={120} color="rgba(255,255,255,0.1)" style={styles.heroWatermark} />
-      <Text style={styles.heroTitle}>Go Premium. Post & Connect</Text>
-      <View style={styles.heroBenefits}>
-        {HERO_BENEFITS.map(b => (
-          <View key={b.label} style={styles.heroBenefitRow}>
-            <View style={styles.heroIconWrap}>
-              <Icon name={b.icon} size={20} color={SECONDARY_FIXED} />
-            </View>
-            <Text style={styles.heroBenefitText}>{b.label}</Text>
-          </View>
-        ))}
-      </View>
-    </LinearGradient>
-
-    <Text style={styles.sectionTitle}>What you get</Text>
-    <View style={styles.compareTable}>
-      <View style={styles.compareHeaderRow}>
-        <Text style={[styles.compareHeaderCell, styles.compareFeatureCol]}>Feature</Text>
-        <Text style={styles.compareHeaderCell}>Free</Text>
-        <Text style={[styles.compareHeaderCell, styles.comparePremiumHeader]}>Premium</Text>
-      </View>
-      {COMPARISON_ROWS.map((row, i) => (
-        <View
-          key={row.feature}
-          style={[styles.compareRow, i < COMPARISON_ROWS.length - 1 && styles.compareRowBorder]}
-        >
-          <Text style={[styles.compareFeature, styles.compareFeatureCol]}>{row.feature}</Text>
-          <View style={styles.compareValueCol}>
-            <ComparisonCell cell={row.free} />
-          </View>
-          <View style={styles.compareValueCol}>
-            {row.premium.type === 'check' ? (
-              <ComparisonCell cell={row.premium} />
-            ) : (
-              <Text
-                style={[
-                  styles.comparePremiumText,
-                  row.premium.bold && styles.comparePremiumBold,
-                  row.premium.uppercase && styles.comparePremiumUpper,
-                ]}
-              >
-                {row.premium.value}
-              </Text>
-            )}
-          </View>
-        </View>
-      ))}
-    </View>
-
-    <View style={styles.pricingCard}>
-      <View style={styles.recommendedBadge}>
-        <Text style={styles.recommendedText}>Recommended</Text>
-      </View>
-      <Text style={styles.planTitle}>Premium Membership</Text>
-      <View style={styles.priceRow}>
-        <Text style={styles.priceAmount}>₹999</Text>
-        <Text style={styles.pricePeriod}>/ 30 days</Text>
-      </View>
-      <View style={styles.planFeatures}>
-        {PLAN_FEATURES.map(f => (
-          <View key={f} style={styles.planFeatureRow}>
-            <Icon name="check" size={18} color={SECONDARY} />
-            <Text style={styles.planFeatureText}>{f}</Text>
-          </View>
-        ))}
-      </View>
-      <TouchableOpacity
-        style={[styles.upgradeBtn, paying && styles.upgradeBtnDisabled]}
-        onPress={onUpgrade}
-        activeOpacity={0.92}
-        disabled={paying}
-      >
-        {paying ? (
-          <ActivityIndicator color={WHITE} />
-        ) : (
-          <>
-            <Text style={styles.upgradeBtnText}>Upgrade Now</Text>
-            <Text style={styles.upgradeBtnSub}>via Razorpay</Text>
-          </>
-        )}
-      </TouchableOpacity>
-      <View style={styles.trustRow}>
-        <View style={styles.trustItem}>
-          <Icon name="shield-lock" size={14} color={VARIANT_FG} />
-          <Text style={styles.trustText}>Secure payment</Text>
-        </View>
-        <View style={styles.trustItem}>
-          <Icon name="calendar-refresh" size={14} color={VARIANT_FG} />
-          <Text style={styles.trustText}>Cancel anytime</Text>
-        </View>
-      </View>
-    </View>
-
-    <Text style={styles.sectionTitle}>Common Questions</Text>
-    <FaqAccordion items={FAQ_ITEMS} />
-  </>
-);
 
 interface ActiveContentProps {
   expiresAt: string | null | undefined;
   planDays: number;
+  planLabel?: string | null;
   isDemo: boolean;
   onRenew: () => void;
   onPostProperty: () => void;
@@ -321,6 +131,7 @@ interface ActiveContentProps {
 const MembershipActiveContent: React.FC<ActiveContentProps> = ({
   expiresAt,
   planDays,
+  planLabel,
   isDemo,
   onRenew,
   onPostProperty,
@@ -379,7 +190,9 @@ const MembershipActiveContent: React.FC<ActiveContentProps> = ({
         </View>
 
         <View style={styles.statusHeroBody}>
-          <Text style={styles.statusHeroTitle}>You're a Premium Member</Text>
+          <Text style={styles.statusHeroTitle}>
+            {planLabel ? `Active: ${planLabel}` : "You're a Premium Member"}
+          </Text>
           <Text style={styles.statusHeroSubtitle}>Enjoying exclusive real estate benefits</Text>
         </View>
 
@@ -461,11 +274,11 @@ const MembershipScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const accessToken = useAuthStore(s => s.accessToken);
   const userId = useAuthStore(s => s.user?.id);
-  const activateMembership = useMembershipStore(s => s.activate);
-  const renewMembership = useMembershipStore(s => s.renew);
   const localRecord = useMembershipStore(s => (userId ? s.byUserId[userId] : undefined));
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [flowStep, setFlowStep] = useState<MembershipFlowStep>('account-type');
+  const [selectedAccountType, setSelectedAccountType] = useState<MembershipAccountType | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const tabBarPad = Math.max(insets.bottom, 14) + 72;
@@ -501,48 +314,80 @@ const MembershipScreen: React.FC = () => {
   const showLoading = loading && !active;
 
   const runCheckout = useCallback(
-    async (mode: 'upgrade' | 'renew') => {
+    async (mode: 'upgrade' | 'renew', options: ActivateMembershipOptions) => {
       if (!userId || paying) return;
       setPaying(true);
       try {
-        await simulateMembershipPayment();
         if (mode === 'renew') {
-          renewMembership(userId);
+          await membershipService.renewDemoMembership();
         } else {
-          activateMembership(userId);
+          await membershipService.activateDemoMembership({
+            accountType: options.accountType,
+            planTier: options.planTier,
+          });
         }
+        const user = await userService.fetchCurrentUser();
+        setCurrentUser(user);
         Toast.show({
           type: 'success',
-          text1: mode === 'renew' ? 'Membership renewed!' : 'Welcome to Premium!',
-          text2: `Premium active for ${MEMBERSHIP_PLAN_DAYS} days.`,
+          text1: mode === 'renew' ? 'Membership renewed!' : 'Welcome aboard!',
+          text2: `${options.planLabel} active for ${options.planDays ?? 30} days.`,
+        });
+      } catch (err) {
+        Toast.show({
+          type: 'error',
+          text1: 'Checkout failed',
+          text2: err instanceof Error ? err.message : 'Please try again.',
         });
       } finally {
         setPaying(false);
       }
     },
-    [activateMembership, paying, renewMembership, userId],
+    [paying, userId],
   );
 
-  const onUpgrade = () => {
+  const confirmPlanCheckout = (plan: MembershipPlanDefinition) => {
+    if (!selectedAccountType) return;
+    const options = buildCheckoutOptions(selectedAccountType, plan);
     Alert.alert(
-      'Upgrade to Premium',
-      `Pay ₹${MEMBERSHIP_PLAN_PRICE_INR} for ${MEMBERSHIP_PLAN_DAYS} days of Premium access?\n\nThis uses demo checkout on your device until Razorpay is live.`,
+      `Subscribe to ${options.planLabel}`,
+      `Pay ₹${options.priceInr} for ${options.planDays ?? 30} days?\n\nDemo checkout on this device until Razorpay is live.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Pay Now', onPress: () => runCheckout('upgrade') },
+        { text: 'Pay Now', onPress: () => runCheckout('upgrade', options) },
       ],
     );
   };
 
   const onRenew = () => {
+    const summary = buildRenewSummary(currentUser);
     Alert.alert(
-      'Renew Premium',
-      `Extend your membership by ${MEMBERSHIP_PLAN_DAYS} days for ₹${MEMBERSHIP_PLAN_PRICE_INR}?`,
+      'Renew Membership',
+      `Extend ${summary.planLabel} by ${summary.planDays} days for ₹${summary.priceInr}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Renew', onPress: () => runCheckout('renew') },
+        {
+          text: 'Renew',
+          onPress: () =>
+            runCheckout('renew', {
+              accountType: currentUser?.membership?.accountType ?? 'OWNER',
+              planTier: currentUser?.membership?.planTier ?? 'MEDIUM',
+              priceInr: summary.priceInr,
+              planDays: summary.planDays,
+              planLabel: summary.planLabel,
+            }),
+        },
       ],
     );
+  };
+
+  const onSelectAccountType = (type: MembershipAccountType) => {
+    setSelectedAccountType(type);
+    setFlowStep('plans');
+  };
+
+  const onBackToAccountTypes = () => {
+    setFlowStep('account-type');
   };
 
   const onPostProperty = () => {
@@ -568,13 +413,21 @@ const MembershipScreen: React.FC = () => {
           <MembershipActiveContent
             expiresAt={expiresAt}
             planDays={planDays}
+            planLabel={resolveMembershipPlanLabel(currentUser, localMembership)}
             isDemo={isDemoMembership}
             onRenew={onRenew}
             onPostProperty={onPostProperty}
             onBoostListing={onBoostListing}
           />
+        ) : flowStep === 'plans' && selectedAccountType ? (
+          <MembershipPlansStep
+            account={getAccountTypeDefinition(selectedAccountType)}
+            paying={paying}
+            onBack={onBackToAccountTypes}
+            onSelectPlan={confirmPlanCheckout}
+          />
         ) : (
-          <MembershipUpgradeContent onUpgrade={onUpgrade} paying={paying} />
+          <MembershipAccountTypeStep onSelect={onSelectAccountType} />
         )}
       </ScrollView>
     </SafeAreaView>

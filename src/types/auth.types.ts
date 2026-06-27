@@ -1,4 +1,4 @@
-export type ProfileType = 'OWNER' | 'AGENT' | 'BROKER' | 'BUYER' | 'RENTER';
+export type ProfileType = 'OWNER' | 'AGENT' | 'BROKER' | 'BUILDER' | 'BUYER' | 'RENTER';
 
 export interface UserProfile {
   id: string;
@@ -26,6 +26,10 @@ export interface AuthUser {
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   profile: UserProfile | null;
+  /** False for active paid members — used by useShouldShowAds() to gate ads. */
+  adsEnabled?: boolean;
+  /** Lightweight membership status — full object is on CurrentUser.membership. */
+  membership?: { status?: string } | null;
 }
 
 export interface AuthTokens {
