@@ -26,6 +26,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import type { ListPropertyFormValues } from '../../types/list-property-form.types';
 import { mapListPropertyFormToCreatePayload, orderPhotoUrisForUpload } from '../../utils/mapListPropertyFormToCreatePayload';
 import { forwardGeocode } from '../../utils/forwardGeocode';
+import { usePostGateAd } from '../../hooks/usePostGateAd';
 
 const GLASS = 'rgba(248, 249, 250, 0.92)';
 
@@ -68,6 +69,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<PostNav>();
   const accessToken = useAuthStore(s => s.accessToken);
+  const { status: adStatus, watched: adWatched, retry: retryAd } = usePostGateAd();
 
   const form = useForm<ListPropertyFormValues>({
     defaultValues: initialValues ? mergeListPropertyDefaults(initialValues) : getListPropertyDefaultValues(),
@@ -107,6 +109,10 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
 
   const persistListing = useCallback(
     async (values: ListPropertyFormValues, publish: boolean) => {
+      if (!adWatched) {
+        Toast.show({ type: 'info', text1: 'Please watch the ad to continue.' });
+        return;
+      }
       if (!requireAuth()) {
         return;
       }
@@ -189,7 +195,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
         setPending('idle');
       }
     },
-    [navigation, requireAuth, form],
+    [navigation, requireAuth, form, adWatched],
   );
 
   const onSaveDraft = form.handleSubmit(values => persistListing(values, false));
@@ -230,7 +236,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                 onPress={onSaveDraft}
                 activeOpacity={0.88}
                 style={styles.draftBtn}
-                disabled={submitting}
+                disabled={submitting || !adWatched}
               >
                 {busyDraft ? (
                   <ActivityIndicator color="#495057" />
@@ -244,7 +250,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                 activeOpacity={0.88}
                 onPress={onSubmit}
                 style={styles.primaryBtn}
-                disabled={submitting}
+                disabled={submitting || !adWatched}
               >
                 {busyPublish ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -257,6 +263,37 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
             </View>
           </View>
         </View>
+
+        {!adWatched ? (
+          <View style={styles.adGateOverlay} pointerEvents="auto">
+            {adStatus === 'failed' ? (
+              <>
+                <Icon name="wifi-off" size={40} color="#fff" />
+                <Text style={styles.adGateTitle}>Ad could not be loaded</Text>
+                <Text style={styles.adGateSub}>
+                  Check your internet connection and try again to continue posting.
+                </Text>
+                <TouchableOpacity
+                  style={styles.adGateRetryBtn}
+                  onPress={retryAd}
+                  activeOpacity={0.88}
+                >
+                  <Text style={styles.adGateRetryText}>Retry</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={styles.adGateTitle}>
+                  {adStatus === 'showing' ? 'Watching ad…' : 'Loading ad…'}
+                </Text>
+                <Text style={styles.adGateSub}>
+                  Watch this short ad to unlock posting your property.
+                </Text>
+              </>
+            )}
+          </View>
+        ) : null}
       </SafeAreaView>
     </View>
   );
@@ -345,6 +382,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  adGateOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 21, 46, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  adGateTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  adGateSub: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  adGateRetryBtn: {
+    marginTop: 8,
+    backgroundColor: '#D1A14E',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 999,
+  },
+  adGateRetryText: {
+    color: '#00152e',
+    fontWeight: '800',
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
 

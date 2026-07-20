@@ -30,6 +30,7 @@ import {
 } from '../../services/user.service';
 import { getApiErrorMessage, sendOtp } from '../../services/auth.service';
 import type { ProfileType } from '../../types/auth.types';
+import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
 
 const NAVY = '#122A47';
 const GOLD = '#D1A14E';
@@ -94,6 +95,7 @@ const EditProfileScreen: React.FC = () => {
   const [profileType, setProfileType] = useState<ProfileType>(user?.profileType ?? 'BUYER');
   const [genderOpen, setGenderOpen] = useState(false);
   const [dobOpen, setDobOpen] = useState(false);
+  const { show: showModeSwitchAd } = useInstantInterstitialAd();
 
   // Pull fresh /me on mount so rich fields (bio, gender, DOB...) are populated
   // even right after login (login response stores a lighter projection).
@@ -177,6 +179,9 @@ const EditProfileScreen: React.FC = () => {
     try {
       const out = await updateMyProfileType(role);
       patchUser({ profileType: out.profileType, role: out.role });
+      // Every account-mode switch (Buyer/Owner/Agent) shows an interstitial —
+      // uncapped by design, skipped automatically for premium members.
+      showModeSwitchAd();
     } catch (err) {
       setProfileType(prev);
       Toast.show({ type: 'error', text1: getApiErrorMessage(err) });

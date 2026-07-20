@@ -28,6 +28,7 @@ import { fetchWishlist, removeWishlistItem } from '../../services/wishlist.servi
 import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { useAuthStore } from '../../stores/auth.store';
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
+import AppBannerAd from '../../components/ads/AppBannerAd';
 
 const PRIMARY = '#00152e';
 const MUTED = '#44474d';
@@ -391,7 +392,12 @@ const WishlistScreen: React.FC = () => {
           loadingMore ? (
             <View style={{ marginTop: 8 }}>{renderSkeleton()}</View>
           ) : (
-            <View style={{ height: 16 }} />
+            <>
+              {items.length > 0 ? (
+                <AppBannerAd containerStyle={{ marginTop: 8, marginBottom: 4 }} />
+              ) : null}
+              <View style={{ height: 16 }} />
+            </>
           )
         }
         ListEmptyComponent={

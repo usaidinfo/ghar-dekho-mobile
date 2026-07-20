@@ -24,6 +24,7 @@ import type { ProfileType } from '../../types/auth.types';
 import appPackage from '../../../package.json';
 import { fetchWishlist } from '../../services/wishlist.service';
 import { fetchMyListings } from '../../services/property.service';
+import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
 
 type ProfileNav = CompositeNavigationProp<
   BottomTabNavigationProp<BottomTabParamList, 'Profile'>,
@@ -51,6 +52,7 @@ const ProfileScreen: React.FC = () => {
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [wishlistCount, setWishlistCount] = React.useState<number | null>(null);
   const [listingsCount, setListingsCount] = React.useState<number | null>(null);
+  const { show: showModeSwitchAd } = useInstantInterstitialAd();
 
   const isSignedIn = Boolean(hasHydrated && accessToken && user);
 
@@ -174,7 +176,12 @@ const ProfileScreen: React.FC = () => {
             agencyName="Heritage Realty"
             rating="4.8"
             reviewCountLabel="(240 reviews)"
-            onAgentDashboard={() => navigation.navigate('AgentDashboard')}
+            onAgentDashboard={() => {
+              // Entering Agent mode shows an interstitial every time —
+              // uncapped by design, skipped automatically for premium members.
+              showModeSwitchAd();
+              navigation.navigate('AgentDashboard');
+            }}
           />
         ) : null}
 

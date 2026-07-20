@@ -20,13 +20,12 @@
 
       <!--
         AdMob App ID — required by Google Mobile Ads SDK.
-        Replace the value below with your real Android AdMob App ID from:
-        https://apps.admob.com → App → App settings → App ID
-        The ID here is Google's official test app ID (safe for development).
+        Real Android AdMob App ID from https://apps.admob.com.
+        Ad UNIT ids (banner/interstitial) .env se aate hain.
       -->
       <meta-data
         android:name="com.google.android.gms.ads.APPLICATION_ID"
-        android:value="ca-app-pub-3940256099942544~3347511713"
+        android:value="ca-app-pub-4255498852279401~2123899753"
         tools:replace="android:value"/>
       <activity
         android:name=".MainActivity"

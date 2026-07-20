@@ -138,6 +138,9 @@ const HomeScreen: React.FC = () => {
             </View>
           ) : null}
 
+          {/* Top banner ad — only visible to free users; hidden for paid members */}
+          <AppBannerAd containerStyle={styles.bannerAdTop} />
+
           <CategoryChips selected={selectedCategory} onSelect={setSelectedCategory} />
 
           <FeaturePoster
@@ -233,6 +236,10 @@ const styles = StyleSheet.create({
   bannerAd: {
     marginTop: 8,
     marginBottom: 8,
+  },
+  bannerAdTop: {
+    marginTop: 4,
+    marginBottom: 12,
   },
 });
 

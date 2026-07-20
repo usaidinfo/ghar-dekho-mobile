@@ -20,6 +20,7 @@ import PropertyLocationLegalSection from '../../components/property-detail/Prope
 import PropertyDetailStickyActions from '../../components/property-detail/PropertyDetailStickyActions';
 import ScheduleVisitSheet, { combineLocalDateTimeISO } from '../../components/visits/ScheduleVisitSheet';
 import PropertyDetailSkeleton from '../../components/home/skeletons/PropertyDetailSkeleton';
+import AppBannerAd from '../../components/ads/AppBannerAd';
 import { fetchPropertyById } from '../../services/property.service';
 import { createOrGetSession } from '../../services/chat.service';
 import { scheduleMeeting } from '../../services/meeting.service';
@@ -244,6 +245,8 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             reraNumber={p.reraNumber}
             nearbyEssentials={p.nearbyEssentials}
           />
+
+          <AppBannerAd containerStyle={{ marginTop: 12 }} />
 
           <View style={{ height: width < 360 ? 16 : 24 }} />
         </View>

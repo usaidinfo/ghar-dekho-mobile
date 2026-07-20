@@ -24,6 +24,7 @@ import { fetchAgencyProfile } from '../../services/agent.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { AgencyProfile } from '../../types/agent.types';
 import type { AgentTabParamList, AgentStackParamList } from '../../navigation/types';
+import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<AgentTabParamList, 'AgentMore'>,
@@ -103,6 +104,7 @@ const AgentMoreScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const logout = useAuthStore(s => s.logout);
+  const { show: showModeSwitchAd } = useInstantInterstitialAd();
 
   const [profile, setProfile] = useState<AgencyProfile | null>(null);
   const [autoFollowUp, setAutoFollowUp] = useState(true);
@@ -258,6 +260,9 @@ const AgentMoreScreen: React.FC = () => {
           style={styles.switchBtn}
           activeOpacity={0.85}
           onPress={() => {
+            // Switching modes shows an interstitial every time — uncapped by
+            // design, skipped automatically for premium members.
+            showModeSwitchAd();
             // Navigate back to the main app (buyer mode)
             const agentStack = navigation.getParent<NativeStackNavigationProp<AgentStackParamList>>();
             agentStack?.getParent()?.goBack();

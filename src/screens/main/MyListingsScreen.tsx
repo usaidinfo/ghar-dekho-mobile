@@ -30,6 +30,7 @@ import { fetchMyListings } from '../../services/property.service';
 import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { useAuthStore } from '../../stores/auth.store';
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
+import AppBannerAd from '../../components/ads/AppBannerAd';
 
 const NAVY = '#122A47';
 const PRIMARY_DEEP = '#00152e';
@@ -473,7 +474,16 @@ const MyListingsScreen: React.FC = () => {
         onEndReached={loadMore}
         onEndReachedThreshold={0.35}
         ListFooterComponent={
-          loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color={NAVY} /> : <View style={{ height: 16 }} />
+          loadingMore ? (
+            <ActivityIndicator style={{ marginVertical: 16 }} color={NAVY} />
+          ) : (
+            <>
+              {items.length > 0 ? (
+                <AppBannerAd containerStyle={{ marginTop: 8, marginBottom: 4 }} />
+              ) : null}
+              <View style={{ height: 16 }} />
+            </>
+          )
         }
         ListEmptyComponent={
           !loading ? (
