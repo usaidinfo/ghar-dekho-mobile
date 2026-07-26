@@ -6,7 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { MD3DarkTheme, MD3LightTheme, Provider as PaperProvider } from 'react-native-paper';
-import mobileAds, { MaxAdContentRating } from 'react-native-google-mobile-ads';
+import mobileAds from 'react-native-google-mobile-ads';
 
 import MainNavigator from './src/navigation/MainNavigator';
 import { adsConfig } from './src/config/ads.config';

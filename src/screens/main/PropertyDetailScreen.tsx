@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -8,10 +8,13 @@ import {
   Linking,
   StyleSheet,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import PropertyHeroGallery from '../../components/property-detail/PropertyHeroGallery';
 import PropertyCoreInfoCard from '../../components/property-detail/PropertyCoreInfoCard';
 import PropertyAiInsightsCard from '../../components/property-detail/PropertyAiInsightsCard';
@@ -24,7 +27,13 @@ import AppBannerAd from '../../components/ads/AppBannerAd';
 import { fetchPropertyById } from '../../services/property.service';
 import { createOrGetSession } from '../../services/chat.service';
 import { scheduleMeeting } from '../../services/meeting.service';
+import { checkWishlist, toggleWishlist } from '../../services/wishlist.service';
+import { savePriceAlert } from '../../services/alert.service';
 import { useAuthStore } from '../../stores/auth.store';
+import { getApiErrorMessage } from '../../services/auth.service';
+import { useMembershipAccess } from '../../hooks/useMembershipAccess';
+import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
+import MembershipRequiredModal from '../../components/membership/MembershipRequiredModal';
 import type { MainStackParamList } from '../../navigation/types';
 import type { PropertyDetail, VirtualTourItem } from '../../types/property-detail.types';
 
@@ -42,6 +51,7 @@ function normalizeDetail(raw: unknown): PropertyDetail {
     virtualTours: Array.isArray(p.virtualTours) ? p.virtualTours : [],
     amenities: Array.isArray(p.amenities) ? p.amenities : [],
     nearbyEssentials: Array.isArray(p.nearbyEssentials) ? p.nearbyEssentials : [],
+    contactLocked: Boolean(p.contactLocked),
   };
 }
 
@@ -55,34 +65,74 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { width, height } = useWindowDimensions();
   const { propertyId } = route.params;
   const myId = useAuthStore(s => s.user?.id);
+  const {
+    gateVisible,
+    gateReason,
+    gateMessage,
+    closeGate,
+    goUpgrade,
+    openGate,
+    refreshMembership,
+  } = useMembershipAccess();
+  const { show: showDetailAd } = useInstantInterstitialAd();
+  const detailAdShownFor = useRef<string | null>(null);
 
   const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [visitOpen, setVisitOpen] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
 
   const horizontalPad = width < 360 ? 16 : width < 400 ? 20 : 24;
   const overlap = overlapAmount(width, height);
   const footerPad = Math.max(insets.bottom, 12) + (width < 360 ? 108 : 118);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const data = await fetchPropertyById(propertyId);
       setProperty(normalizeDetail(data));
+      if (myId) {
+        const saved = await checkWishlist(propertyId).catch(() => false);
+        setFavorited(saved);
+      } else {
+        setFavorited(false);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not load property';
-      setError(msg);
-      Toast.show({ type: 'error', text1: msg });
+      if (!opts?.silent) {
+        setError(msg);
+        Toast.show({ type: 'error', text1: msg });
+      }
     } finally {
       setLoading(false);
     }
-  }, [propertyId]);
+  }, [propertyId, myId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshMembership();
+      // Soft refresh when returning (e.g. after membership upgrade unlocks contact).
+      void load({ silent: true });
+    }, [refreshMembership, load]),
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Free users: show interstitial once per property open (after content is ready).
+  useEffect(() => {
+    if (!property || loading) return;
+    if (detailAdShownFor.current === propertyId) return;
+    detailAdShownFor.current = propertyId;
+    const t = setTimeout(() => showDetailAd(), 450);
+    return () => clearTimeout(t);
+  }, [property, propertyId, loading, showDetailAd]);
 
   const tour360 = useMemo(
     () =>
@@ -120,13 +170,15 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const onChat = async () => {
+    if (property?.contactLocked) {
+      openGate('contact');
+      return;
+    }
     if (!property?.owner?.id) {
       Toast.show({ type: 'info', text1: 'Owner information unavailable' });
       return;
     }
     if (!myId) {
-      // Logged-out users never reach this screen (root navigator gates auth),
-      // but keep a defensive toast in case of a revoked session mid-view.
       Toast.show({ type: 'info', text1: 'Please sign in to chat' });
       return;
     }
@@ -160,6 +212,10 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const onSchedule = () => {
+    if (property?.contactLocked) {
+      openGate('contact');
+      return;
+    }
     if (!property?.owner?.id) {
       Toast.show({ type: 'info', text1: 'Owner information unavailable' });
       return;
@@ -169,6 +225,76 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
     setVisitOpen(true);
+  };
+
+  const onToggleFavorite = async () => {
+    if (!myId) {
+      Toast.show({ type: 'info', text1: 'Please sign in to save homes' });
+      return;
+    }
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    const prev = favorited;
+    setFavorited(!prev);
+    try {
+      const next = await toggleWishlist(propertyId, prev);
+      setFavorited(next);
+      Toast.show({
+        type: 'success',
+        text1: next ? 'Saved to wishlist' : 'Removed from wishlist',
+      });
+    } catch (e) {
+      setFavorited(prev);
+      Toast.show({ type: 'error', text1: getApiErrorMessage(e) });
+    } finally {
+      setFavoriteBusy(false);
+    }
+  };
+
+  const onSetPriceAlert = () => {
+    if (!myId) {
+      Toast.show({ type: 'info', text1: 'Please sign in to set a price alert' });
+      return;
+    }
+    const price = Number(property?.price) || 0;
+    if (price <= 0) {
+      Toast.show({ type: 'info', text1: 'Price unavailable for alerts' });
+      return;
+    }
+    const drop5 = Math.round(price * 0.95);
+    const drop10 = Math.round(price * 0.9);
+    Alert.alert(
+      'Set price alert',
+      `Current price ₹${price.toLocaleString('en-IN')}. Choose a target — we’ll watch for drops to that level.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `5% lower (₹${drop5.toLocaleString('en-IN')})`,
+          onPress: () => void persistPriceAlert(drop5),
+        },
+        {
+          text: `10% lower (₹${drop10.toLocaleString('en-IN')})`,
+          onPress: () => void persistPriceAlert(drop10),
+        },
+      ],
+    );
+  };
+
+  const persistPriceAlert = async (target: number) => {
+    try {
+      await savePriceAlert({
+        propertyId,
+        targetPrice: target,
+        alertType: 'BELOW',
+      });
+      Toast.show({
+        type: 'success',
+        text1: 'Price alert saved',
+        text2: `Watching for ₹${target.toLocaleString('en-IN')} or below`,
+      });
+    } catch (e) {
+      Toast.show({ type: 'error', text1: getApiErrorMessage(e) });
+    }
   };
 
   if (loading && !property) {
@@ -205,6 +331,9 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           onBack={() => navigation.goBack()}
           on360={() => openTour(tour360)}
           onVideoTour={openVideo}
+          favorited={favorited}
+          onToggleFavorite={() => void onToggleFavorite()}
+          favoriteBusy={favoriteBusy}
         />
 
         <View style={[styles.overlapMain, { marginTop: overlap, paddingHorizontal: horizontalPad }]}>
@@ -236,6 +365,14 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             rentalYield={p.rentalYield != null ? Number(p.rentalYield) : null}
           />
 
+          <Pressable
+            onPress={onSetPriceAlert}
+            style={({ pressed }) => [styles.alertBtn, pressed && { opacity: 0.9 }]}
+          >
+            <Icon name="bell-ring-outline" size={18} color={PRIMARY} />
+            <Text style={styles.alertBtnText}>Set price alert</Text>
+          </Pressable>
+
           <PropertyAmenitiesSection amenities={p.amenities ?? []} />
 
           <PropertyLocationLegalSection
@@ -252,7 +389,22 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </ScrollView>
 
-      <PropertyDetailStickyActions bottomInset={insets.bottom} onChat={onChat} onSchedule={onSchedule} />
+      <PropertyDetailStickyActions
+        bottomInset={insets.bottom}
+        contactLocked={Boolean(p.contactLocked)}
+        ownerPhone={p.owner?.phone}
+        onChat={() => void onChat()}
+        onSchedule={onSchedule}
+        onUpgrade={() => openGate('contact')}
+      />
+
+      <MembershipRequiredModal
+        visible={gateVisible}
+        reason={gateReason}
+        message={gateMessage}
+        onClose={closeGate}
+        onUpgrade={goUpgrade}
+      />
 
       <ScheduleVisitSheet
         visible={visitOpen}
@@ -334,6 +486,25 @@ const styles = StyleSheet.create({
   retryText: {
     color: '#fff',
     fontWeight: '700',
+  },
+  alertBtn: {
+    marginTop: 12,
+    marginBottom: 4,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: PRIMARY,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  alertBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: PRIMARY,
+    letterSpacing: 0.3,
   },
 });
 

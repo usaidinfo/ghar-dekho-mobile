@@ -15,6 +15,8 @@
  * and sends `adsEnabled: false` in the `/api/users/me` response.
  * Both checks are applied independently — either one suppresses all ads.
  *
+ * Guests (not logged in) are treated as free users and may see ads.
+ *
  * This hook is cheap (reads Zustand, no network call) and safe to call
  * from any component or hook. It re-evaluates reactively on auth changes.
  */
@@ -48,7 +50,8 @@ export function useShouldShowAds(): ShouldShowAdsResult {
   // 3. Backend explicit flag — false when the server decided this user
   //    should not see ads (e.g. paid plan active).
   //    Defaults to true for guests (user === null) and unannotated accounts.
-  const backendAdsEnabled = user === null ? true : (user.adsEnabled !== false);
+  //    If either signal says paid, ads stay hidden.
+  const backendAdsEnabled = user == null ? true : user.adsEnabled !== false;
 
   const shouldShowAds = globalEnabled && membershipInactive && backendAdsEnabled;
 

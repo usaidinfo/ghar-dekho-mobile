@@ -8,6 +8,10 @@ export interface ProfileSettingsSectionProps {
   onMyActivity: () => void;
   onMessages?: () => void;
   onNotifications: () => void;
+  onCalculators?: () => void;
+  onPriceAlerts?: () => void;
+  onSellerAnalytics?: () => void;
+  onRentals?: () => void;
   onHelp: () => void;
   showNotificationDot?: boolean;
 }
@@ -43,6 +47,10 @@ const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
   onMyActivity,
   onMessages,
   onNotifications,
+  onCalculators,
+  onPriceAlerts,
+  onSellerAnalytics,
+  onRentals,
   onHelp,
   showNotificationDot = true,
 }) => (
@@ -54,6 +62,18 @@ const ProfileSettingsSection: React.FC<ProfileSettingsSectionProps> = ({
       <SettingsRow icon="account-edit-outline" label="Edit profile" onPress={onEditProfile} />
       {onMessages ? <SettingsRow icon="message-text-outline" label="Messages" onPress={onMessages} /> : null}
       <SettingsRow icon="history" label="My activity" onPress={onMyActivity} />
+      {onSellerAnalytics ? (
+        <SettingsRow icon="chart-box-outline" label="Seller analytics" onPress={onSellerAnalytics} />
+      ) : null}
+      {onRentals ? (
+        <SettingsRow icon="home-account" label="Rental management" onPress={onRentals} />
+      ) : null}
+      {onCalculators ? (
+        <SettingsRow icon="calculator-variant-outline" label="EMI & affordability" onPress={onCalculators} />
+      ) : null}
+      {onPriceAlerts ? (
+        <SettingsRow icon="bell-badge-outline" label="Price alerts" onPress={onPriceAlerts} />
+      ) : null}
       <SettingsRow
         icon="bell-ring-outline"
         label="Notifications"

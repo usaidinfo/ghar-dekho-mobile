@@ -31,6 +31,11 @@ import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { useAuthStore } from '../../stores/auth.store';
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 import AppBannerAd from '../../components/ads/AppBannerAd';
+import MembershipRequiredModal from '../../components/membership/MembershipRequiredModal';
+import { useMembershipAccess } from '../../hooks/useMembershipAccess';
+import { boostPropertyListing, featurePropertyListing } from '../../services/promotion.service';
+import { getApiErrorMessage } from '../../services/auth.service';
+import Toast from 'react-native-toast-message';
 
 const NAVY = '#122A47';
 const PRIMARY_DEEP = '#00152e';
@@ -205,6 +210,62 @@ const MyListingsScreen: React.FC = () => {
     void loadPage(page + 1, 'append');
   }, [loadPage, loading, loadingMore, meta?.hasNext, page]);
 
+  const {
+    requireMembership,
+    handleApiError,
+    gateVisible,
+    gateReason,
+    gateMessage,
+    closeGate,
+    goUpgrade,
+  } = useMembershipAccess();
+  const [promoBusyId, setPromoBusyId] = useState<string | null>(null);
+
+  const promoteListing = useCallback(
+    (propertyId: string, kind: 'boost' | 'feature') => {
+      if (!requireMembership('boost')) return;
+      Alert.alert(
+        kind === 'boost' ? 'Boost this listing?' : 'Feature this listing?',
+        kind === 'boost'
+          ? 'Uses 1 boost credit and highlights this listing for about a week.'
+          : 'Uses 1 featured slot for about 30 days.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: kind === 'boost' ? 'Boost' : 'Feature',
+            onPress: async () => {
+              setPromoBusyId(propertyId);
+              try {
+                if (kind === 'boost') {
+                  const res = await boostPropertyListing(propertyId);
+                  Toast.show({
+                    type: 'success',
+                    text1: 'Listing boosted',
+                    text2: `${res.boostCreditsRemaining ?? 0} credits left`,
+                  });
+                } else {
+                  const res = await featurePropertyListing(propertyId);
+                  Toast.show({
+                    type: 'success',
+                    text1: 'Listing featured',
+                    text2: `${res.featuredSlotsRemaining ?? 0} slots left`,
+                  });
+                }
+                void loadPage(1, 'replace', { isRefresh: true });
+              } catch (e) {
+                if (handleApiError(e)) return;
+                Toast.show({ type: 'error', text1: getApiErrorMessage(e) });
+              } finally {
+                setPromoBusyId(null);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [requireMembership, handleApiError, loadPage],
+  );
+
   const goPost = useCallback(() => {
     navigation.navigate('PostProperty');
   }, [navigation]);
@@ -378,13 +439,51 @@ const MyListingsScreen: React.FC = () => {
                     ))}
                   </View>
                 ) : null}
+                <View style={styles.promoRow}>
+                  <TouchableOpacity
+                    style={[styles.promoBtn, item.isBoosted && styles.promoBtnDone]}
+                    activeOpacity={0.85}
+                    disabled={promoBusyId === item.id || item.isBoosted}
+                    onPress={() => promoteListing(item.id, 'boost')}
+                  >
+                    {promoBusyId === item.id ? (
+                      <ActivityIndicator size="small" color={NAVY} />
+                    ) : (
+                      <>
+                        <Icon
+                          name={item.isBoosted ? 'rocket-launch' : 'rocket-launch-outline'}
+                          size={14}
+                          color={NAVY}
+                        />
+                        <Text style={styles.promoBtnText}>
+                          {item.isBoosted ? 'Boosted' : 'Boost'}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.promoBtn, item.isFeatured && styles.promoBtnDone]}
+                    activeOpacity={0.85}
+                    disabled={promoBusyId === item.id || item.isFeatured}
+                    onPress={() => promoteListing(item.id, 'feature')}
+                  >
+                    <Icon
+                      name={item.isFeatured ? 'star' : 'star-outline'}
+                      size={14}
+                      color={NAVY}
+                    />
+                    <Text style={styles.promoBtnText}>
+                      {item.isFeatured ? 'Featured' : 'Feature'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
         </TouchableOpacity>
       );
     },
-    [navigation],
+    [navigation, promoteListing, promoBusyId],
   );
 
   const profileUri = user?.profile?.profileImage;
@@ -403,7 +502,7 @@ const MyListingsScreen: React.FC = () => {
           <Icon name="lock-outline" size={48} color={MUTED} />
           <Text style={styles.emptyTitle}>Sign in required</Text>
           <Text style={styles.emptySub}>Log in to view and manage your property listings.</Text>
-          <TouchableOpacity style={styles.btnPrimaryWide} onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity style={styles.btnPrimaryWide} onPress={() => navigation.navigate('Login' as never)}>
             <Text style={styles.btnPrimaryText}>Sign in</Text>
           </TouchableOpacity>
         </View>
@@ -449,7 +548,7 @@ const MyListingsScreen: React.FC = () => {
       {sessionExpired ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>Session expired. Sign in again to load your listings.</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Login' as never)}>
             <Text style={styles.errorLink}>Sign in</Text>
           </TouchableOpacity>
         </View>
@@ -510,6 +609,14 @@ const MyListingsScreen: React.FC = () => {
       >
         <Icon name="plus" size={30} color="#fff" />
       </TouchableOpacity>
+
+      <MembershipRequiredModal
+        visible={gateVisible}
+        reason={gateReason}
+        message={gateMessage}
+        onClose={closeGate}
+        onUpgrade={goUpgrade}
+      />
     </SafeAreaView>
   );
 };
@@ -662,6 +769,35 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY_DEEP,
     opacity: 0.85,
     minHeight: 4,
+  },
+  promoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  promoBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: NAVY,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  promoBtnDone: {
+    opacity: 0.55,
+    backgroundColor: 'rgba(18,42,71,0.06)',
+  },
+  promoBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: NAVY,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   draftFooter: {
     marginTop: 14,

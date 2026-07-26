@@ -92,6 +92,8 @@ export interface CurrentUser {
   membershipStatus?: string | null;
   membershipExpiresAt?: string | null;
   verifiedBadge?: boolean;
+  /** False for active paid members — from GET /api/users/me. */
+  adsEnabled?: boolean;
   _count: {
     ownedProperties: number;
     wishlists: number;

@@ -12,14 +12,20 @@ import {
   Platform,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Toast from 'react-native-toast-message';
 
-import { fetchAgentListings } from '../../services/agent.service';
-import type { AgentListing } from '../../types/agent.types';
+import { fetchAgentListingPerformance } from '../../services/agent.service';
+import { boostPropertyListing, featurePropertyListing } from '../../services/promotion.service';
+import { getApiErrorMessage } from '../../services/auth.service';
+import { useMembershipAccess } from '../../hooks/useMembershipAccess';
+import MembershipRequiredModal from '../../components/membership/MembershipRequiredModal';
+import type { AgentLead, AgentListing } from '../../types/agent.types';
 import type { AgentStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AgentStackParamList, 'AgentListingPerformance'>;
@@ -38,36 +44,35 @@ const ON_SURFACE = '#1b1c1e';
 const ON_SURF_VAR = '#44474d';
 const TEAL = '#509d9b';
 
-// Simple bar chart using View columns
-const BAR_HEIGHTS = [75, 65, 80, 50, 100, 75, 80, 65, 75, 50, 74, 80, 100, 65];
 const CHART_H = 160;
 
-const SimpleBarChart: React.FC = () => (
+const SimpleBarChart: React.FC<{ heights?: number[] }> = ({ heights }) => {
+  const bars = heights?.length
+    ? heights
+    : [20, 20, 20, 20, 20, 20, 20];
+  return (
   <View style={chartStyles.wrap}>
-    {/* Grid lines */}
     {[0, 1, 2, 3].map(i => (
       <View key={i} style={[chartStyles.gridLine, { bottom: `${(i / 3) * 100}%` as any }]} />
     ))}
-    {/* Bars */}
     <View style={chartStyles.barsRow}>
-      {BAR_HEIGHTS.map((h, i) => (
+      {bars.map((h, i) => (
         <View key={i} style={chartStyles.barWrap}>
-          <View style={[chartStyles.bar, { height: (h / 100) * CHART_H }]} />
+          <View style={[chartStyles.bar, { height: (Math.max(4, h) / 100) * CHART_H }]} />
         </View>
       ))}
     </View>
-    {/* SVG line overlay - simulated with a view */}
     <View style={chartStyles.lineOverlay} pointerEvents="none">
       <View style={chartStyles.leadLine} />
     </View>
-    {/* X-axis */}
     <View style={chartStyles.xAxis}>
       {['1 Mar', '10 Mar', '20 Mar', '30 Mar'].map(l => (
         <Text key={l} style={chartStyles.xLabel}>{l}</Text>
       ))}
     </View>
   </View>
-);
+  );
+};
 
 const chartStyles = StyleSheet.create({
   wrap: {
@@ -170,21 +175,85 @@ const AgentListingPerformanceScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<AgentStackParamList>>();
   const route = useRoute<Props['route']>();
   const insets = useSafeAreaInsets();
+  const {
+    gateVisible,
+    gateReason,
+    gateMessage,
+    closeGate,
+    goUpgrade,
+    handleApiError,
+    requireMembership,
+  } = useMembershipAccess();
 
   const [listing, setListing] = useState<AgentListing | null>(null);
+  const [recentLeads, setRecentLeads] = useState<AgentLead[]>([]);
+  const [chartHeights, setChartHeights] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [promoBusy, setPromoBusy] = useState<'idle' | 'boost' | 'feature'>('idle');
 
   const load = useCallback(async () => {
     try {
-      const all = await fetchAgentListings();
-      const found = all.find(l => l.id === route.params.listingId) ?? all[0];
-      setListing(found ?? null);
+      const data = await fetchAgentListingPerformance(route.params.listingId);
+      setListing(data.listing);
+      setRecentLeads(data.recentLeads);
+      const views = data.series.map(s => s.views);
+      const max = Math.max(1, ...views);
+      setChartHeights(
+        (views.length ? views : [0]).slice(-14).map(v => Math.round((v / max) * 100)),
+      );
+    } catch {
+      setListing(null);
     } finally {
       setLoading(false);
     }
   }, [route.params.listingId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const runPromote = useCallback(
+    (kind: 'boost' | 'feature') => {
+      if (!requireMembership('boost')) return;
+      const title = kind === 'boost' ? 'Boost this listing?' : 'Feature this listing?';
+      const body =
+        kind === 'boost'
+          ? 'Uses 1 boost credit from your plan and highlights this listing for about a week.'
+          : 'Uses 1 featured slot and places this listing in featured results for about 30 days.';
+      Alert.alert(title, body, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: kind === 'boost' ? 'Boost' : 'Feature',
+          onPress: async () => {
+            if (promoBusy !== 'idle') return;
+            setPromoBusy(kind);
+            try {
+              if (kind === 'boost') {
+                const res = await boostPropertyListing(route.params.listingId);
+                Toast.show({
+                  type: 'success',
+                  text1: 'Listing boosted',
+                  text2: `${res.boostCreditsRemaining ?? 0} boost credits left this month`,
+                });
+              } else {
+                const res = await featurePropertyListing(route.params.listingId);
+                Toast.show({
+                  type: 'success',
+                  text1: 'Listing featured',
+                  text2: `${res.featuredSlotsRemaining ?? 0} featured slots remaining`,
+                });
+              }
+              await load();
+            } catch (e) {
+              if (handleApiError(e)) return;
+              Toast.show({ type: 'error', text1: getApiErrorMessage(e) });
+            } finally {
+              setPromoBusy('idle');
+            }
+          },
+        },
+      ]);
+    },
+    [requireMembership, promoBusy, route.params.listingId, load, handleApiError],
+  );
 
   if (loading || !listing) {
     return (
@@ -293,10 +362,9 @@ const AgentListingPerformanceScreen: React.FC = () => {
               </View>
             </View>
           </View>
-          <SimpleBarChart />
+          <SimpleBarChart heights={chartHeights} />
         </View>
 
-        {/* Recent Leads */}
         <View style={styles.recentSection}>
           <View style={styles.recentHeader}>
             <Text style={styles.sectionTitle}>Recent Leads</Text>
@@ -304,35 +372,62 @@ const AgentListingPerformanceScreen: React.FC = () => {
               <Text style={styles.viewAllText}>View All Leads</Text>
             </TouchableOpacity>
           </View>
-          <RecentLeadRow
-            initials="AK"
-            name="Ananya Kapoor"
-            subtext="Inquired via WhatsApp • 2h ago"
-          />
-          <RecentLeadRow
-            initials="RV"
-            name="Rohan Verma"
-            subtext="Scheduled Site Visit • 5h ago"
-          />
-          <RecentLeadRow
-            initials="SM"
-            name="Sanjay Mehta"
-            subtext="Requested Brochure • Yesterday"
-          />
+          {recentLeads.length === 0 ? (
+            <Text style={styles.propLoc}>No leads yet for this listing.</Text>
+          ) : (
+            recentLeads.slice(0, 5).map(lead => (
+              <RecentLeadRow
+                key={lead.id}
+                initials={lead.leadName.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                name={lead.leadName}
+                subtext={`${lead.stage.replace(/_/g, ' ')} • ${lead.maskedPhone}`}
+              />
+            ))
+          )}
         </View>
       </ScrollView>
 
       {/* Bottom CTAs */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 8) + 4 }]}>
-        <TouchableOpacity style={styles.boostBtn} activeOpacity={0.85}>
-          <Icon name="rocket-launch-outline" size={18} color="#fff" />
-          <Text style={styles.boostBtnText}>Boost Listing</Text>
+        <TouchableOpacity
+          style={[styles.boostBtn, promoBusy !== 'idle' && { opacity: 0.6 }]}
+          activeOpacity={0.85}
+          disabled={promoBusy !== 'idle'}
+          onPress={() => runPromote('boost')}
+        >
+          {promoBusy === 'boost' ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Icon name="rocket-launch-outline" size={18} color="#fff" />
+              <Text style={styles.boostBtnText}>Boost Listing</Text>
+            </>
+          )}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.featureBtn} activeOpacity={0.85}>
-          <Icon name="star-outline" size={18} color="#fff" />
-          <Text style={styles.featureBtnText}>Feature</Text>
+        <TouchableOpacity
+          style={[styles.featureBtn, promoBusy !== 'idle' && { opacity: 0.6 }]}
+          activeOpacity={0.85}
+          disabled={promoBusy !== 'idle'}
+          onPress={() => runPromote('feature')}
+        >
+          {promoBusy === 'feature' ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Icon name="star-outline" size={18} color="#fff" />
+              <Text style={styles.featureBtnText}>Feature</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
+
+      <MembershipRequiredModal
+        visible={gateVisible}
+        reason={gateReason}
+        message={gateMessage}
+        onClose={closeGate}
+        onUpgrade={goUpgrade}
+      />
     </SafeAreaView>
   );
 };

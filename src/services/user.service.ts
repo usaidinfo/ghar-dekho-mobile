@@ -111,3 +111,24 @@ export async function uploadMyProfileImage(
   }
   return data.data;
 }
+
+type RecentlyViewedApiRow = {
+  id: string;
+  title: string;
+  price: number;
+  city: string;
+  locality: string;
+  listingType?: string;
+  viewedAt?: string;
+  images?: Array<{ imageUrl?: string; thumbnailUrl?: string | null }>;
+};
+
+export async function fetchRecentlyViewed(): Promise<RecentlyViewedApiRow[]> {
+  const { data } = await httpClient.get<ApiSuccess<RecentlyViewedApiRow[]>>(
+    '/api/users/me/recently-viewed',
+  );
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to load recently viewed');
+  }
+  return data.data ?? [];
+}

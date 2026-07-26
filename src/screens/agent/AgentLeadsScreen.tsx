@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -180,7 +180,6 @@ const LeadCard: React.FC<{ lead: AgentLead; onPress: () => void }> = ({ lead, on
 
 const AgentLeadsScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
-  const insets = useSafeAreaInsets();
 
   const [leads, setLeads] = useState<AgentLead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,32 +190,32 @@ const AgentLeadsScreen: React.FC = () => {
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const data = await fetchAgentLeads();
+      const data = await fetchAgentLeads(
+        activeFilter === 'All' ? undefined : activeFilter,
+      );
       setLeads(data);
+    } catch {
+      setLeads([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [activeFilter]);
 
   useEffect(() => { load(); }, [load]);
 
   const filtered = leads.filter(l => {
-    const matchStage = activeFilter === 'All' || l.stage === activeFilter;
     const q = query.toLowerCase();
-    const matchQuery =
+    return (
       !q ||
       l.leadName.toLowerCase().includes(q) ||
       l.propertyTitle.toLowerCase().includes(q) ||
-      l.maskedPhone.includes(q);
-    return matchStage && matchQuery;
+      l.maskedPhone.includes(q)
+    );
   });
-
-  const tabBarH = Math.max(insets.bottom, 8) + 64;
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.avatarCircle}>
@@ -229,7 +228,6 @@ const AgentLeadsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
       <View style={styles.searchWrap}>
         <Icon name="magnify" size={20} color={ON_SURF_VAR} style={styles.searchIcon} />
         <TextInput
@@ -244,26 +242,29 @@ const AgentLeadsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filtersRow}
-        style={styles.filtersScroll}
-      >
-        {STAGE_FILTERS.map(f => (
-          <TouchableOpacity
-            key={f.value}
-            style={[styles.filterChip, activeFilter === f.value && styles.filterChipActive]}
-            onPress={() => setActiveFilter(f.value)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.filterChipText, activeFilter === f.value && styles.filterChipTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.filtersWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersRow}
+        >
+          {STAGE_FILTERS.map(f => (
+            <TouchableOpacity
+              key={f.value}
+              style={[styles.filterChip, activeFilter === f.value && styles.filterChipActive]}
+              onPress={() => setActiveFilter(f.value)}
+              activeOpacity={0.8}
+            >
+              <Text
+                numberOfLines={1}
+                style={[styles.filterChipText, activeFilter === f.value && styles.filterChipTextActive]}
+              >
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 60 }} color={NAVY} />
@@ -271,7 +272,7 @@ const AgentLeadsScreen: React.FC = () => {
         <FlatList
           data={filtered}
           keyExtractor={item => item.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarH + 8 }]}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={NAVY} />
@@ -294,12 +295,8 @@ const AgentLeadsScreen: React.FC = () => {
         />
       )}
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: tabBarH + 16 }]}
-        activeOpacity={0.85}
-      >
-        <Icon name="plus" size={28} color="#fff" />
+      <TouchableOpacity style={styles.fab} activeOpacity={0.85}>
+        <Icon name="plus" size={26} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -344,18 +341,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filtersScroll: { marginBottom: 8 },
-  filtersRow: { paddingHorizontal: 16, gap: 8 },
+  filtersWrap: {
+    height: 44,
+    marginBottom: 4,
+  },
+  filtersRow: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
   filterChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 999,
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
     backgroundColor: SURF_HIGH,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   filterChipActive: { backgroundColor: NAVY },
   filterChipText: { fontSize: 13, fontWeight: '600', color: ON_SURF_VAR },
   filterChipTextActive: { color: '#fff', fontWeight: '700' },
-  listContent: { paddingHorizontal: 14, paddingTop: 4 },
+  listContent: { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 88, flexGrow: 1 },
 
   leadCard: {
     backgroundColor: SURF_LOW,
@@ -451,6 +458,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
+    bottom: 20,
     width: 56,
     height: 56,
     borderRadius: 28,

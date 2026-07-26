@@ -1,16 +1,11 @@
-/**
- * @file PropertyCard.tsx
- * @description Individual property card for the "Curated for You" carousel.
- *
- * API Integration:
- * - Favorite state will move to a wishlist Zustand store + POST /api/wishlists.
- * - `onPress` navigates to PropertyDetail with `propertyId`.
- */
-
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import Toast from 'react-native-toast-message';
 import type { Property } from '../../types/property.types';
+import { toggleWishlist } from '../../services/wishlist.service';
+import { useAuthStore } from '../../stores/auth.store';
+import { getApiErrorMessage } from '../../services/auth.service';
 
 interface PropertyCardProps {
   property: Property;
@@ -18,7 +13,29 @@ interface PropertyCardProps {
 }
 
 const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
+  const myId = useAuthStore(s => s.user?.id);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const onToggleFav = async () => {
+    if (!myId) {
+      Toast.show({ type: 'info', text1: 'Please sign in to save homes' });
+      return;
+    }
+    if (busy) return;
+    setBusy(true);
+    const prev = isFavorited;
+    setIsFavorited(!prev);
+    try {
+      const next = await toggleWishlist(property.id, prev);
+      setIsFavorited(next);
+    } catch (e) {
+      setIsFavorited(prev);
+      Toast.show({ type: 'error', text1: getApiErrorMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <TouchableOpacity
@@ -26,7 +43,6 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
       onPress={onPress}
       style={styles.card}
     >
-      {/* --- Image --- */}
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: property.imageUrl }}
@@ -34,7 +50,6 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
           resizeMode="cover"
         />
 
-        {/* Verified Badge */}
         {property.isVerified && (
           <View style={styles.verifiedBadge}>
             <Icon name="verified" size={12} color="#ffffff" />
@@ -42,12 +57,15 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
           </View>
         )}
 
-        {/* Favorite Button */}
         <TouchableOpacity
-          style={styles.favoriteButton}
-          onPress={() => setIsFavorited(prev => !prev)}
+          style={[styles.favoriteButton, busy && { opacity: 0.6 }]}
+          onPress={e => {
+            e?.stopPropagation?.();
+            void onToggleFav();
+          }}
           activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          disabled={busy}
         >
           <Icon
             name={isFavorited ? 'favorite' : 'favorite-border'}
@@ -57,9 +75,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
         </TouchableOpacity>
       </View>
 
-      {/* --- Content --- */}
       <View style={styles.content}>
-        {/* Price + Type */}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{property.priceLabel}</Text>
           <View style={styles.typeBadge}>
@@ -67,12 +83,10 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
           </View>
         </View>
 
-        {/* Title */}
         <Text style={styles.title} numberOfLines={1}>
           {property.title}
         </Text>
 
-        {/* Location */}
         <View style={styles.locationRow}>
           <Icon name="location-on" size={14} color="#D1A14E" />
           <Text style={styles.location} numberOfLines={1}>
@@ -84,8 +98,6 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onPress }) => {
   );
 };
 
-// StyleSheet is used here because FlatList card sizing requires explicit width/height.
-// NativeWind className is used wherever possible in the parent components.
 const styles = StyleSheet.create({
   card: {
     width: 300,

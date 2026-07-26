@@ -111,4 +111,5 @@ export interface PropertyDetail {
   amenities?: PropertyAmenityJoin[];
   nearbyEssentials?: NearbyEssentialItem[];
   owner?: PropertyOwner;
+  contactLocked?: boolean;
 }

@@ -37,7 +37,7 @@ import {
 } from '../../stores/membership.store';
 import type { ActivateMembershipOptions } from '../../stores/membership.store';
 import type { BottomTabParamList, MainStackParamList } from '../../navigation/types';
-import type { MembershipAccountType, MembershipPlanDefinition } from '../../types/membership.types';
+import type { MembershipAccountType, MembershipPlanDefinition, MembershipPlanTier } from '../../types/membership.types';
 import type { CurrentUser } from '../../types/user.types';
 import {
   formatMembershipExpiry,
@@ -89,7 +89,7 @@ type MembershipNav = CompositeNavigationProp<
   NativeStackNavigationProp<MainStackParamList>
 >;
 
-type MembershipFlowStep = 'account-type' | 'plans';
+type MembershipFlowStep = 'account-type' | 'plans' | 'upgrade-plans';
 
 function buildCheckoutOptions(
   accountType: MembershipAccountType,
@@ -122,8 +122,11 @@ interface ActiveContentProps {
   expiresAt: string | null | undefined;
   planDays: number;
   planLabel?: string | null;
+  planTier?: string | null;
   isDemo: boolean;
+  canUpgrade: boolean;
   onRenew: () => void;
+  onUpgradePlan: () => void;
   onPostProperty: () => void;
   onBoostListing: () => void;
 }
@@ -132,8 +135,11 @@ const MembershipActiveContent: React.FC<ActiveContentProps> = ({
   expiresAt,
   planDays,
   planLabel,
+  planTier,
   isDemo,
+  canUpgrade,
   onRenew,
+  onUpgradePlan,
   onPostProperty,
   onBoostListing,
 }) => {
@@ -228,6 +234,23 @@ const MembershipActiveContent: React.FC<ActiveContentProps> = ({
         </View>
       ) : null}
 
+      {canUpgrade ? (
+        <TouchableOpacity style={styles.upgradePlanCard} onPress={onUpgradePlan} activeOpacity={0.9}>
+          <View style={styles.upgradePlanLeft}>
+            <View style={styles.upgradePlanIcon}>
+              <Icon name="arrow-up-bold-circle-outline" size={22} color={SECONDARY_DARK} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.upgradePlanTitle}>Upgrade your plan</Text>
+              <Text style={styles.upgradePlanSub}>
+                Move from {planTier ?? 'current'} to a higher tier for more listings and boosts.
+              </Text>
+            </View>
+          </View>
+          <Icon name="chevron-right" size={22} color={SECONDARY_DARK} />
+        </TouchableOpacity>
+      ) : null}
+
       <View style={styles.quickActions}>
         <TouchableOpacity style={styles.quickActionPrimary} onPress={onPostProperty} activeOpacity={0.9}>
           <Icon name="home-plus" size={30} color={WHITE} />
@@ -314,12 +337,14 @@ const MembershipScreen: React.FC = () => {
   const showLoading = loading && !active;
 
   const runCheckout = useCallback(
-    async (mode: 'upgrade' | 'renew', options: ActivateMembershipOptions) => {
+    async (mode: 'upgrade' | 'renew' | 'plan-upgrade', options: ActivateMembershipOptions) => {
       if (!userId || paying) return;
       setPaying(true);
       try {
         if (mode === 'renew') {
           await membershipService.renewDemoMembership();
+        } else if (mode === 'plan-upgrade') {
+          await membershipService.upgradeDemoMembership(options.planTier);
         } else {
           await membershipService.activateDemoMembership({
             accountType: options.accountType,
@@ -328,9 +353,16 @@ const MembershipScreen: React.FC = () => {
         }
         const user = await userService.fetchCurrentUser();
         setCurrentUser(user);
+        await useAuthStore.getState().refreshCurrentUser().catch(() => undefined);
+        setFlowStep('account-type');
         Toast.show({
           type: 'success',
-          text1: mode === 'renew' ? 'Membership renewed!' : 'Welcome aboard!',
+          text1:
+            mode === 'renew'
+              ? 'Membership renewed!'
+              : mode === 'plan-upgrade'
+                ? 'Plan upgraded!'
+                : 'Welcome aboard!',
           text2: `${options.planLabel} active for ${options.planDays ?? 30} days.`,
         });
       } catch (err) {
@@ -359,6 +391,22 @@ const MembershipScreen: React.FC = () => {
     );
   };
 
+  const confirmPlanUpgrade = (plan: MembershipPlanDefinition) => {
+    const accountType =
+      (currentUser?.membership?.accountType as MembershipAccountType | null) ??
+      selectedAccountType ??
+      'OWNER';
+    const options = buildCheckoutOptions(accountType, plan);
+    Alert.alert(
+      `Upgrade to ${options.planLabel}`,
+      `Pay ₹${options.priceInr} for a fresh ${options.planDays ?? 30}-day period on the higher plan?\n\nDemo upgrade until Razorpay is live.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Upgrade Now', onPress: () => runCheckout('plan-upgrade', options) },
+      ],
+    );
+  };
+
   const onRenew = () => {
     const summary = buildRenewSummary(currentUser);
     Alert.alert(
@@ -381,12 +429,27 @@ const MembershipScreen: React.FC = () => {
     );
   };
 
+  const currentTier = currentUser?.membership?.planTier ?? null;
+  const currentAccountType =
+    (currentUser?.membership?.accountType as MembershipAccountType | null) ?? null;
+  const canUpgradePlan = Boolean(active && currentTier && currentTier !== 'PREMIUM' && currentAccountType);
+
+  const onOpenUpgradePlans = () => {
+    if (!currentAccountType) return;
+    setSelectedAccountType(currentAccountType);
+    setFlowStep('upgrade-plans');
+  };
+
   const onSelectAccountType = (type: MembershipAccountType) => {
     setSelectedAccountType(type);
     setFlowStep('plans');
   };
 
   const onBackToAccountTypes = () => {
+    setFlowStep('account-type');
+  };
+
+  const onBackFromUpgrade = () => {
     setFlowStep('account-type');
   };
 
@@ -397,6 +460,8 @@ const MembershipScreen: React.FC = () => {
   const onBoostListing = () => {
     navigation.navigate('MyListings');
   };
+
+  const showUpgradePicker = flowStep === 'upgrade-plans' && selectedAccountType;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -409,13 +474,25 @@ const MembershipScreen: React.FC = () => {
           <View style={styles.loadingWrap}>
             <ActivityIndicator size="large" color={PRIMARY_CONTAINER} />
           </View>
+        ) : showUpgradePicker ? (
+          <MembershipPlansStep
+            account={getAccountTypeDefinition(selectedAccountType)}
+            paying={paying}
+            mode="upgrade"
+            minTierExclusive={(currentTier as MembershipPlanTier | null) ?? null}
+            onBack={onBackFromUpgrade}
+            onSelectPlan={confirmPlanUpgrade}
+          />
         ) : active ? (
           <MembershipActiveContent
             expiresAt={expiresAt}
             planDays={planDays}
             planLabel={resolveMembershipPlanLabel(currentUser, localMembership)}
+            planTier={currentTier}
             isDemo={isDemoMembership}
+            canUpgrade={canUpgradePlan}
             onRenew={onRenew}
+            onUpgradePlan={onOpenUpgradePlans}
             onPostProperty={onPostProperty}
             onBoostListing={onBoostListing}
           />
@@ -859,6 +936,43 @@ const styles = StyleSheet.create({
     backgroundColor: SURFACE_LOW,
     borderRadius: 12,
     padding: 14,
+  },
+  upgradePlanCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: 'rgba(209,161,78,0.12)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(209,161,78,0.35)',
+  },
+  upgradePlanLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+  },
+  upgradePlanIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(125,87,5,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upgradePlanTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: DARK,
+  },
+  upgradePlanSub: {
+    fontSize: 12,
+    color: OUTLINE_MUTED,
+    marginTop: 2,
+    lineHeight: 16,
   },
   renewBannerLeft: {
     flex: 1,

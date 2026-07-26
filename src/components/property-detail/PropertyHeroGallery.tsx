@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Image,
@@ -34,6 +34,9 @@ interface PropertyHeroGalleryProps {
   onBack: () => void;
   on360?: () => void;
   onVideoTour?: () => void;
+  favorited?: boolean;
+  onToggleFavorite?: () => void;
+  favoriteBusy?: boolean;
 }
 
 const PropertyHeroGallery: React.FC<PropertyHeroGalleryProps> = ({
@@ -43,10 +46,12 @@ const PropertyHeroGallery: React.FC<PropertyHeroGalleryProps> = ({
   onBack,
   on360,
   onVideoTour,
+  favorited = false,
+  onToggleFavorite,
+  favoriteBusy = false,
 }) => {
   const { width: winW, height: winH } = useWindowDimensions();
   const h = useMemo(() => heroHeight(winH, winW), [winH, winW]);
-  const [favorited, setFavorited] = useState(false);
   const horizontalPad = winW < 360 ? 16 : winW < 400 ? 20 : 24;
 
   const primary =
@@ -86,8 +91,9 @@ const PropertyHeroGallery: React.FC<PropertyHeroGalleryProps> = ({
             <Icon name="share-variant" size={20} color="#FFFFFF" />
           </Pressable>
           <Pressable
-            onPress={() => setFavorited(f => !f)}
-            style={styles.glassCircle}
+            onPress={onToggleFavorite}
+            disabled={!onToggleFavorite || favoriteBusy}
+            style={[styles.glassCircle, favoriteBusy && { opacity: 0.55 }]}
             accessibilityRole="button"
             accessibilityLabel={favorited ? 'Remove from favorites' : 'Add to favorites'}
           >

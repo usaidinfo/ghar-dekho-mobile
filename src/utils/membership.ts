@@ -1,45 +1,74 @@
 import type { CurrentUser } from '../types/user.types';
+import type { AuthUser } from '../types/auth.types';
 import type { LocalMembership } from '../stores/membership.store';
 import { isLocalMembershipActive } from '../stores/membership.store';
 
-function isUserMembershipBlockActive(user: CurrentUser | null | undefined): boolean {
+type MembershipLike =
+  | CurrentUser
+  | AuthUser
+  | {
+      membership?: { status?: string; expiresAt?: string | null; planDays?: number; planName?: string } | null;
+      membershipStatus?: string | null;
+      membershipExpiresAt?: string | null;
+      agentProfile?: {
+        subscriptionStatus?: string | null;
+        subscriptionExpiresAt?: string | null;
+      } | null;
+    }
+  | null
+  | undefined;
+
+function isUserMembershipBlockActive(user: MembershipLike): boolean {
   const m = user?.membership;
   if (!m || m.status?.toUpperCase() !== 'ACTIVE') return false;
   if (!m.expiresAt) return true;
   return new Date(m.expiresAt) > new Date();
 }
 
-/** Active subscription from backend `/api/users/me` membership block. */
-export function isMembershipActiveFromApi(user: CurrentUser | null | undefined): boolean {
+export function isMembershipActiveFromApi(user: MembershipLike): boolean {
   if (isUserMembershipBlockActive(user)) return true;
 
-  // Legacy fallback: agent profile subscription fields
-  if (!user?.agentProfile) return false;
-  const { subscriptionStatus, subscriptionExpiresAt } = user.agentProfile;
-  if (subscriptionStatus?.toUpperCase() !== 'ACTIVE') return false;
-  if (!subscriptionExpiresAt) return true;
-  return new Date(subscriptionExpiresAt) > new Date();
+  const agent = user && 'agentProfile' in user ? user.agentProfile : null;
+  if (agent) {
+    const { subscriptionStatus, subscriptionExpiresAt } = agent;
+    if (subscriptionStatus?.toUpperCase() === 'ACTIVE') {
+      if (!subscriptionExpiresAt) return true;
+      if (new Date(subscriptionExpiresAt) > new Date()) return true;
+    }
+  }
+
+  if (user && 'membershipStatus' in user && user.membershipStatus?.toUpperCase() === 'ACTIVE') {
+    const exp = 'membershipExpiresAt' in user ? user.membershipExpiresAt : null;
+    if (!exp) return true;
+    return new Date(exp) > new Date();
+  }
+
+  return false;
 }
 
-/** True when backend or local demo membership is active. */
 export function isMembershipActive(
-  user: CurrentUser | null | undefined,
+  user: MembershipLike,
   localMembership?: LocalMembership | null,
 ): boolean {
   if (isMembershipActiveFromApi(user)) return true;
   return isLocalMembershipActive(localMembership);
 }
 
-/** Prefer server expiry; fall back to local demo record. */
 export function resolveMembershipExpiresAt(
-  user: CurrentUser | null | undefined,
+  user: MembershipLike,
   localMembership?: LocalMembership | null,
 ): string | null {
   if (isUserMembershipBlockActive(user)) {
     return user?.membership?.expiresAt ?? null;
   }
   if (isMembershipActiveFromApi(user)) {
-    return user?.agentProfile?.subscriptionExpiresAt ?? user?.membershipExpiresAt ?? null;
+    const agent = user && 'agentProfile' in user ? user.agentProfile : null;
+    return (
+      agent?.subscriptionExpiresAt ??
+      (user && 'membershipExpiresAt' in user ? user.membershipExpiresAt ?? null : null) ??
+      user?.membership?.expiresAt ??
+      null
+    );
   }
   if (isLocalMembershipActive(localMembership)) {
     return localMembership?.expiresAt ?? null;
@@ -48,12 +77,11 @@ export function resolveMembershipExpiresAt(
 }
 
 export function resolveMembershipPlanDays(
-  user: CurrentUser | null | undefined,
+  user: MembershipLike,
   localMembership?: LocalMembership | null,
 ): number {
-  if (user?.membership?.planDays) {
-    return user.membership.planDays;
-  }
+  const m = user?.membership as { planDays?: number } | null | undefined;
+  if (m?.planDays) return m.planDays;
   if (isLocalMembershipActive(localMembership) && localMembership?.planDays) {
     return localMembership.planDays;
   }
@@ -61,15 +89,12 @@ export function resolveMembershipPlanDays(
 }
 
 export function resolveMembershipPlanLabel(
-  user: CurrentUser | null | undefined,
+  user: MembershipLike,
   localMembership?: LocalMembership | null,
 ): string | null {
-  if (user?.membership?.planName) {
-    return user.membership.planName;
-  }
-  if (localMembership?.planLabel) {
-    return localMembership.planLabel;
-  }
+  const m = user?.membership as { planName?: string } | null | undefined;
+  if (m?.planName) return m.planName;
+  if (localMembership?.planLabel) return localMembership.planLabel;
   return null;
 }
 
@@ -80,7 +105,6 @@ export function formatMembershipExpiry(iso: string | null | undefined): string |
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** Whole days until subscription expiry (0 if expired). */
 export function getMembershipDaysRemaining(iso: string | null | undefined): number | null {
   if (!iso) return null;
   const end = new Date(iso);
@@ -90,7 +114,6 @@ export function getMembershipDaysRemaining(iso: string | null | undefined): numb
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-/** Elapsed share of the billing period (0–100), assuming a fixed plan length. */
 export function getMembershipProgressPercent(
   expiresAt: string | null | undefined,
   planDays = 30,
@@ -106,7 +129,6 @@ export function getMembershipProgressPercent(
   return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
 }
 
-/** Show renew nudge when membership ends within this many days. */
 export function isMembershipExpiringSoon(
   expiresAt: string | null | undefined,
   withinDays = 14,

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-import type { MembershipAccountTypeDefinition, MembershipPlanDefinition } from '../../types/membership.types';
+import type { MembershipAccountTypeDefinition, MembershipPlanDefinition, MembershipPlanTier } from '../../types/membership.types';
 
 const PRIMARY = '#00152e';
 const PRIMARY_CONTAINER = '#122A47';
@@ -25,20 +25,43 @@ const WHITE = '#ffffff';
 
 const PLAN_CARD_WIDTH = 220;
 
+const TIER_RANK: Record<MembershipPlanTier, number> = {
+  BASIC: 1,
+  MEDIUM: 2,
+  PREMIUM: 3,
+};
+
 interface Props {
   account: MembershipAccountTypeDefinition;
   paying: boolean;
   onBack: () => void;
   onSelectPlan: (plan: MembershipPlanDefinition) => void;
+  /** When set, only show tiers strictly above this one (plan upgrade mode). */
+  minTierExclusive?: MembershipPlanTier | null;
+  mode?: 'subscribe' | 'upgrade';
 }
 
-const MembershipPlansStep: React.FC<Props> = ({ account, paying, onBack, onSelectPlan }) => (
+const MembershipPlansStep: React.FC<Props> = ({
+  account,
+  paying,
+  onBack,
+  onSelectPlan,
+  minTierExclusive = null,
+  mode = 'subscribe',
+}) => {
+  const plans = minTierExclusive
+    ? account.plans.filter(p => TIER_RANK[p.tier] > TIER_RANK[minTierExclusive])
+    : account.plans;
+
+  return (
   <View style={styles.root}>
     <View style={styles.topBar}>
       <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8} hitSlop={12}>
         <Icon name="arrow-left" size={22} color={PRIMARY} />
       </TouchableOpacity>
-      <Text style={styles.topTitle}>{account.plansTitle}</Text>
+      <Text style={styles.topTitle}>
+        {mode === 'upgrade' ? 'Upgrade Your Plan' : account.plansTitle}
+      </Text>
       <View style={styles.backSpacer} />
     </View>
 
@@ -48,19 +71,36 @@ const MembershipPlansStep: React.FC<Props> = ({ account, paying, onBack, onSelec
       </View>
       <View style={styles.bannerText}>
         <Text style={[styles.bannerLabel, { color: account.accentDark }]}>
-          You selected: {account.title}
+          {mode === 'upgrade'
+            ? `Upgrading within ${account.title}`
+            : `You selected: ${account.title}`}
         </Text>
-        <Text style={styles.bannerSubtitle}>{account.plansSubtitle}</Text>
+        <Text style={styles.bannerSubtitle}>
+          {mode === 'upgrade'
+            ? 'Pick a higher tier for more listings, boosts, and features.'
+            : account.plansSubtitle}
+        </Text>
       </View>
     </View>
 
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>Select Your Plan</Text>
+      <Text style={styles.sectionTitle}>
+        {mode === 'upgrade' ? 'Available upgrades' : 'Select Your Plan'}
+      </Text>
       <View style={[styles.validityBadge, { backgroundColor: account.accentLight }]}>
         <Text style={[styles.validityText, { color: account.accentDark }]}>30 Days Validity</Text>
       </View>
     </View>
 
+    {plans.length === 0 ? (
+      <View style={styles.emptyUpgrade}>
+        <Icon name="crown" size={28} color={account.accent} />
+        <Text style={styles.emptyUpgradeTitle}>You're on the top plan</Text>
+        <Text style={styles.emptyUpgradeSub}>
+          There is no higher tier for {account.title} right now.
+        </Text>
+      </View>
+    ) : (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -68,7 +108,7 @@ const MembershipPlansStep: React.FC<Props> = ({ account, paying, onBack, onSelec
       decelerationRate="fast"
       snapToInterval={PLAN_CARD_WIDTH + 14}
     >
-      {account.plans.map(plan => (
+      {plans.map(plan => (
         <View
           key={plan.tier}
           style={[
@@ -106,12 +146,15 @@ const MembershipPlansStep: React.FC<Props> = ({ account, paying, onBack, onSelec
             {paying ? (
               <ActivityIndicator color={account.accent} size="small" />
             ) : (
-              <Text style={[styles.ctaText, { color: account.accent }]}>Get Started</Text>
+              <Text style={[styles.ctaText, { color: account.accent }]}>
+                {mode === 'upgrade' ? 'Upgrade' : 'Get Started'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
       ))}
     </ScrollView>
+    )}
 
     <View style={[styles.paymentBanner, { backgroundColor: account.accentLight }]}>
       <Icon name="shield-lock-outline" size={20} color={account.accentDark} />
@@ -132,10 +175,15 @@ const MembershipPlansStep: React.FC<Props> = ({ account, paying, onBack, onSelec
 
     <View style={styles.infoFooter}>
       <Icon name="information-outline" size={16} color={VARIANT_FG} />
-      <Text style={styles.infoText}>You can upgrade or downgrade your plan anytime.</Text>
+      <Text style={styles.infoText}>
+        {mode === 'upgrade'
+          ? 'Upgrading starts a fresh 30-day period on the new plan.'
+          : 'You can upgrade to a higher plan anytime from Membership.'}
+      </Text>
     </View>
   </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   root: {
@@ -337,6 +385,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: VARIANT_FG,
     opacity: 0.85,
+  },
+  emptyUpgrade: {
+    alignItems: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  emptyUpgradeTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: PRIMARY,
+    textAlign: 'center',
+  },
+  emptyUpgradeSub: {
+    fontSize: 13,
+    color: VARIANT_FG,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

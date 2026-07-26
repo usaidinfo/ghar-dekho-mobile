@@ -165,7 +165,7 @@ const ChatInboxScreen: React.FC = () => {
         <ChatInboxHeader title="Messages" />
         <View style={styles.center}>
           <Text style={styles.err}>Sign in to view your conversations.</Text>
-          <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate('Login' as never)}>
             <Text style={styles.btnText}>Sign in</Text>
           </TouchableOpacity>
         </View>

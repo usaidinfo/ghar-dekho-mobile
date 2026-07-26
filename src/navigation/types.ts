@@ -53,6 +53,10 @@ export type MainStackParamList = {
   SearchResults: { query?: string; category?: string };
   MyListings: undefined;
   Wishlist: undefined;
+  Calculators: undefined;
+  PriceAlerts: undefined;
+  SellerAnalytics: undefined;
+  Rentals: undefined;
   ChatInbox: undefined;
   ChatThread: ChatThreadParams;
   Notifications: undefined;

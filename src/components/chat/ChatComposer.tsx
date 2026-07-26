@@ -56,7 +56,7 @@ const ChatComposer: React.FC<ChatComposerProps> = ({
 
   const pickImage = useCallback(() => {
     launchImageLibrary(
-      { mediaType: 'photo', quality: 0.85, selectionLimit: 1 },
+      { mediaType: 'photo', quality: 0.8, selectionLimit: 1 },
       res => {
         const a = res.assets?.[0];
         if (a) void onSendImage(a);

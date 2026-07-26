@@ -35,10 +35,24 @@ function currentUserToAuthUser(curr: CurrentUser): AuthUser {
     isEmailVerified: curr.isEmailVerified,
     isPhoneVerified: curr.isPhoneVerified,
     // Propagate adsEnabled so useShouldShowAds() can read it from the store
-    // without an extra network call.
-    adsEnabled: (curr as unknown as { adsEnabled?: boolean }).adsEnabled,
+    // without an extra network call. Prefer explicit flag; fall back to
+    // membership.status so a partial /me payload still gates correctly.
+    adsEnabled:
+      typeof curr.adsEnabled === 'boolean'
+        ? curr.adsEnabled
+        : curr.membership?.status?.toUpperCase() !== 'ACTIVE',
     // Propagate lightweight membership status for ad gating.
-    membership: curr.membership ? { status: curr.membership.status } : null,
+    membership: curr.membership
+      ? {
+          status: curr.membership.status,
+          expiresAt: curr.membership.expiresAt ?? null,
+        }
+      : curr.membershipStatus
+        ? {
+            status: curr.membershipStatus,
+            expiresAt: curr.membershipExpiresAt ?? null,
+          }
+        : null,
     profile: curr.profile
       ? {
           id: curr.profile.id,
@@ -109,14 +123,19 @@ export const useAuthStore = create<AuthState>()(
       loginWithPassword: async (identifier, password) => {
         const res = await authService.loginWithPassword(identifier, password);
         get().setAuth(res.user, res.accessToken, res.refreshToken);
+        // Login payload is a light user projection (no membership / adsEnabled).
+        // Refresh /me so free-vs-paid ad gating is correct immediately.
+        await get().refreshCurrentUser().catch(() => undefined);
       },
       loginWithOtp: async payload => {
         const res = await authService.loginWithOtp(payload);
         get().setAuth(res.user, res.accessToken, res.refreshToken);
+        await get().refreshCurrentUser().catch(() => undefined);
       },
       register: async payload => {
         const res = await authService.registerAccount(payload);
         get().setAuth(res.user, res.accessToken, res.refreshToken);
+        await get().refreshCurrentUser().catch(() => undefined);
       },
       logout: async () => {
         await authService.logoutRemote();
@@ -136,6 +155,9 @@ export const useAuthStore = create<AuthState>()(
         useAuthStore.setState({ hasHydrated: true });
         if (state?.accessToken && state?.refreshToken) {
           setSessionTokens(state.accessToken, state.refreshToken);
+          // Refresh membership / adsEnabled after cold start so paid members
+          // never briefly see ads from a stale persisted snapshot.
+          void useAuthStore.getState().refreshCurrentUser().catch(() => undefined);
         }
       },
     },

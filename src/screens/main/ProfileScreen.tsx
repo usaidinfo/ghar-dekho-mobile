@@ -61,8 +61,8 @@ const ProfileScreen: React.FC = () => {
     : '';
   const subtitle = user?.email || user?.phone || '';
 
-  const openLogin = () => navigation.navigate('Login');
-  const openSignup = () => navigation.navigate('Signup');
+  const openLogin = () => navigation.navigate('Login' as never);
+  const openSignup = () => navigation.navigate('Signup' as never);
 
   const onLogout = async () => {
     setLoggingOut(true);
@@ -189,6 +189,10 @@ const ProfileScreen: React.FC = () => {
           onEditProfile={() => navigation.navigate('EditProfile')}
           onMessages={() => navigation.navigate('ChatInbox')}
           onMyActivity={() => navigation.navigate('History')}
+          onCalculators={() => navigation.navigate('Calculators')}
+          onPriceAlerts={() => navigation.navigate('PriceAlerts')}
+          onSellerAnalytics={() => navigation.navigate('SellerAnalytics')}
+          onRentals={() => navigation.navigate('Rentals')}
           onNotifications={() => navigation.navigate('Notifications')}
           onHelp={() => {
             Linking.openURL('mailto:support@ghardekho.com?subject=Help%20%26%20Support').catch(() => undefined);

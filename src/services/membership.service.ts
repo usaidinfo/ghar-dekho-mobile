@@ -36,3 +36,13 @@ export async function renewDemoMembership(): Promise<UserMembership> {
   }
   return data.data;
 }
+
+export async function upgradeDemoMembership(planTier: MembershipPlanTier): Promise<UserMembership> {
+  const { data } = await httpClient.post<ApiSuccess<UserMembership>>('/api/membership/upgrade-demo', {
+    planTier,
+  });
+  if (!data.success || !data.data) {
+    throw new Error(data.message || 'Failed to upgrade membership');
+  }
+  return data.data;
+}

@@ -27,6 +27,16 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<AgentStackParamList>
 >;
 
+type StatusTab = 'Active' | 'Draft' | 'Sold/Rented' | 'Expired';
+const STATUS_TABS: StatusTab[] = ['Active', 'Draft', 'Sold/Rented', 'Expired'];
+
+const STATUS_API: Record<StatusTab, string> = {
+  Active: 'ACTIVE',
+  Draft: 'DRAFT',
+  'Sold/Rented': 'SOLD',
+  Expired: 'EXPIRED',
+};
+
 const NAVY = '#00152e';
 const SECONDARY = '#7d5705';
 const SEC_CON = '#fec972';
@@ -39,9 +49,6 @@ const ON_SURFACE = '#1b1c1e';
 const ON_SURF_VAR = '#44474d';
 const TEAL = '#509d9b';
 const TEAL_CON = '#002f2f';
-
-type StatusTab = 'Active' | 'Draft' | 'Sold/Rented' | 'Expired';
-const STATUS_TABS: StatusTab[] = ['Active', 'Draft', 'Sold/Rented', 'Expired'];
 
 const StatCell: React.FC<{ label: string; value: string | number; accent?: string }> = ({
   label,
@@ -129,22 +136,26 @@ const AgentListingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
 
   const [listings, setListings] = useState<AgentListing[]>([]);
+  const [summary, setSummary] = useState({ activeCount: 0, totalCount: 0, totalLeads: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<StatusTab>('Active');
 
-  const load = useCallback(async (isRefresh = false) => {
+  const load = useCallback(async (isRefresh = false, tab: StatusTab = activeTab) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const data = await fetchAgentListings();
-      setListings(data);
+      const data = await fetchAgentListings(STATUS_API[tab]);
+      setListings(data.listings);
+      setSummary(data.summary);
+    } catch {
+      setListings([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [activeTab]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(false, activeTab); }, [load, activeTab]);
 
   const tabBarH = Math.max(insets.bottom, 8) + 64;
 
@@ -162,7 +173,9 @@ const AgentListingsScreen: React.FC = () => {
       <View style={styles.summaryBar}>
         <View style={styles.summaryLeft}>
           <View style={styles.activeDot} />
-          <Text style={styles.summaryText}>12 active · 48 total leads this month</Text>
+          <Text style={styles.summaryText}>
+            {summary.activeCount} active · {summary.totalLeads} total leads
+          </Text>
         </View>
         <TouchableOpacity style={styles.addBtn} activeOpacity={0.85}>
           <Text style={styles.addBtnText}>Add Listing</Text>
@@ -205,7 +218,7 @@ const AgentListingsScreen: React.FC = () => {
           contentContainerStyle={[styles.listContent, { paddingBottom: tabBarH + 8 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={NAVY} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => load(true, activeTab)} tintColor={NAVY} />
           }
           renderItem={({ item }) => (
             <ListingCard

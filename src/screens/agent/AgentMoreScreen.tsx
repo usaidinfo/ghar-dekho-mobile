@@ -20,11 +20,12 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-import { fetchAgencyProfile } from '../../services/agent.service';
+import { fetchAgencyProfile, fetchAgentTeam, saveAgencyProfile } from '../../services/agent.service';
 import { useAuthStore } from '../../stores/auth.store';
 import type { AgencyProfile } from '../../types/agent.types';
 import type { AgentTabParamList, AgentStackParamList } from '../../navigation/types';
 import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
+import { navigateToMembership } from '../../utils/navigateToMembership';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<AgentTabParamList, 'AgentMore'>,
@@ -108,13 +109,18 @@ const AgentMoreScreen: React.FC = () => {
 
   const [profile, setProfile] = useState<AgencyProfile | null>(null);
   const [autoFollowUp, setAutoFollowUp] = useState(true);
+  const [teamCount, setTeamCount] = useState(0);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const p = await fetchAgencyProfile();
+      const [p, team] = await Promise.all([
+        fetchAgencyProfile(),
+        fetchAgentTeam().catch(() => null),
+      ]);
       setProfile(p);
       setAutoFollowUp(p.autoFollowUp);
+      if (team) setTeamCount(team.summary.totalMembers);
     } catch {}
   }, []);
 
@@ -209,7 +215,11 @@ const AgentMoreScreen: React.FC = () => {
           <MenuItem
             icon="account-group-outline"
             label="Team Members"
-            subtitle="8 Agents Active"
+            subtitle={
+              teamCount > 0
+                ? `${teamCount} Agent${teamCount === 1 ? '' : 's'} Active`
+                : 'Manage your team'
+            }
             onPress={goToTeam}
             isLast
           />
@@ -222,12 +232,29 @@ const AgentMoreScreen: React.FC = () => {
             icon="lightning-bolt-outline"
             label="Boost Credits"
             subtitle={`${profile?.boostCredits ?? 0} Credits Available`}
+            onPress={() => {
+              Alert.alert(
+                'Boost credits',
+                `You have ${profile?.boostCredits ?? 0} boost credit(s) this month.\n\nOpen a listing’s performance screen or My Listings to spend a credit.`,
+                [
+                  { text: 'OK', style: 'cancel' },
+                  {
+                    text: 'My Listings',
+                    onPress: () => {
+                      const root = navigation.getParent()?.getParent();
+                      root?.navigate('MyListings' as never);
+                    },
+                  },
+                ],
+              );
+            }}
           />
           <MenuItem
             icon="card-account-details-outline"
             label="Membership"
             badge={profile?.membershipLabel}
             badgeColor={TEAL_CON}
+            onPress={() => navigateToMembership(navigation)}
           />
           <MenuItem
             icon="robot-outline"
@@ -236,7 +263,14 @@ const AgentMoreScreen: React.FC = () => {
             rightElement={
               <Switch
                 value={autoFollowUp}
-                onValueChange={setAutoFollowUp}
+                onValueChange={async next => {
+                  setAutoFollowUp(next);
+                  try {
+                    await saveAgencyProfile({ autoFollowUp: next });
+                  } catch {
+                    setAutoFollowUp(!next);
+                  }
+                }}
                 trackColor={{ false: SURF_HIGHEST, true: TEAL_CON }}
                 thumbColor={autoFollowUp ? TEAL : '#fff'}
               />

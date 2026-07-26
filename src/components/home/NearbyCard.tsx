@@ -1,12 +1,11 @@
-/**
- * @file NearbyCard.tsx
- * @description Compact card for "Near Your Property" section.
- */
-
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Toast from 'react-native-toast-message';
 import type { NearbyProperty } from '../../types/property.types';
+import { toggleWishlist } from '../../services/wishlist.service';
+import { useAuthStore } from '../../stores/auth.store';
+import { getApiErrorMessage } from '../../services/auth.service';
 
 interface NearbyCardProps {
   property: NearbyProperty;
@@ -14,17 +13,42 @@ interface NearbyCardProps {
 }
 
 const NearbyCard: React.FC<NearbyCardProps> = ({ property, onPress }) => {
+  const myId = useAuthStore(s => s.user?.id);
   const [isFav, setIsFav] = useState(property.isFavorited ?? false);
+  const [busy, setBusy] = useState(false);
+
+  const onToggleFav = async () => {
+    if (!myId) {
+      Toast.show({ type: 'info', text1: 'Please sign in to save homes' });
+      return;
+    }
+    if (busy) return;
+    setBusy(true);
+    const prev = isFav;
+    setIsFav(!prev);
+    try {
+      const next = await toggleWishlist(property.id, prev);
+      setIsFav(next);
+    } catch (e) {
+      setIsFav(prev);
+      Toast.show({ type: 'error', text1: getApiErrorMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      {/* Image */}
       <View style={styles.imageContainer}>
         <Image source={{ uri: property.imageUrl }} style={styles.image} resizeMode="cover" />
         <TouchableOpacity
-          style={styles.favBtn}
-          onPress={() => setIsFav(p => !p)}
+          style={[styles.favBtn, busy && { opacity: 0.6 }]}
+          onPress={e => {
+            e?.stopPropagation?.();
+            void onToggleFav();
+          }}
           activeOpacity={0.8}
+          disabled={busy}
         >
           <Icon
             name={isFav ? 'heart' : 'heart-outline'}
@@ -34,7 +58,6 @@ const NearbyCard: React.FC<NearbyCardProps> = ({ property, onPress }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Info */}
       <View style={styles.info}>
         <Text style={styles.price}>{property.priceLabel}</Text>
         <Text style={styles.title} numberOfLines={2}>{property.title}</Text>

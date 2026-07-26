@@ -12,20 +12,13 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import HomeScreen from '../screens/main/HomeScreen';
 import MembershipScreen from '../screens/main/MembershipScreen';
+import HistoryScreen from '../screens/main/HistoryScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import type { BottomTabParamList } from './types';
 
 const NAVY = '#122A47';
 const SECONDARY = '#D1A14E';
 const MUTED = 'rgba(119,119,121,0.72)';
-
-const Placeholder: React.FC<{ label: string }> = ({ label }) => (
-  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#faf9fc' }}>
-    <Text style={{ color: '#777779', fontSize: 15 }}>{label} — Coming Soon</Text>
-  </View>
-);
-
-const HistoryScreen = () => <Placeholder label="History" />;
 
 type TabName = keyof BottomTabParamList;
 
@@ -58,6 +51,10 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const bottomPad = Math.max(insets.bottom, 4);
   const stackNav = navigation.getParent();
 
+  const openPost = () => {
+    stackNav?.navigate('PostProperty' as never);
+  };
+
   return (
     <View style={styles.tabBarRoot}>
       <View style={[styles.tabBar, { paddingBottom: bottomPad }]}>
@@ -66,7 +63,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
             return (
               <View key="post-fab" style={styles.centerWrap} pointerEvents="box-none">
                 <TouchableOpacity
-                  onPress={() => stackNav?.navigate('PostProperty' as never)}
+                  onPress={openPost}
                   activeOpacity={0.88}
                   style={[styles.fabHit, { transform: [{ translateY: FAB_FLOAT_Y }] }]}
                   accessibilityRole="button"

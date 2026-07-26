@@ -28,8 +28,11 @@ export interface AuthUser {
   profile: UserProfile | null;
   /** False for active paid members — used by useShouldShowAds() to gate ads. */
   adsEnabled?: boolean;
-  /** Lightweight membership status — full object is on CurrentUser.membership. */
-  membership?: { status?: string } | null;
+  /** Lightweight membership — used for client-side gating. */
+  membership?: {
+    status?: string;
+    expiresAt?: string | null;
+  } | null;
 }
 
 export interface AuthTokens {

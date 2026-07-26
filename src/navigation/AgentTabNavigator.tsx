@@ -35,7 +35,7 @@ interface AgentTabItem {
 }
 
 const AGENT_TABS: AgentTabItem[] = [
-  { name: 'AgentHome', icon: 'view-dashboard-outline', activeIcon: 'view-dashboard', label: 'Dashboard' },
+  { name: 'AgentHome', icon: 'view-dashboard-outline', activeIcon: 'view-dashboard', label: 'Explore' },
   { name: 'AgentLeads', icon: 'inbox-outline', activeIcon: 'inbox', label: 'Leads' },
   { name: 'AgentListings', icon: 'office-building-outline', activeIcon: 'office-building', label: 'Listings' },
   { name: 'AgentAnalytics', icon: 'chart-line', activeIcon: 'chart-line', label: 'Analytics' },

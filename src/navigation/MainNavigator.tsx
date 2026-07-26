@@ -19,6 +19,10 @@ import PostPropertyScreen from '../screens/main/PostPropertyScreen';
 import MyVisitsScreen from '../screens/main/MyVisitsScreen';
 import VisitScheduledScreen from '../screens/main/VisitScheduledScreen';
 import EditProfileScreen from '../screens/main/EditProfileScreen';
+import CalculatorsScreen from '../screens/main/CalculatorsScreen';
+import PriceAlertsScreen from '../screens/main/PriceAlertsScreen';
+import SellerAnalyticsScreen from '../screens/main/SellerAnalyticsScreen';
+import RentalsScreen from '../screens/main/RentalsScreen';
 import AgentNavigator from './AgentNavigator';
 
 import type { MainStackParamList, AuthStackParamList } from './types';
@@ -80,6 +84,10 @@ function AppNavigator() {
       <AppStack.Screen name="SearchResults" component={SearchResultsScreen} />
       <AppStack.Screen name="MyListings" component={MyListingsScreen} />
       <AppStack.Screen name="Wishlist" component={WishlistScreen} />
+      <AppStack.Screen name="Calculators" component={CalculatorsScreen} />
+      <AppStack.Screen name="PriceAlerts" component={PriceAlertsScreen} />
+      <AppStack.Screen name="SellerAnalytics" component={SellerAnalyticsScreen} />
+      <AppStack.Screen name="Rentals" component={RentalsScreen} />
       <AppStack.Screen name="NeighborhoodDetail" component={NeighborhoodDetailScreen} />
       <AppStack.Screen name="ChatInbox" component={ChatInboxScreen} />
       <AppStack.Screen name="ChatThread" component={ChatThreadScreen} />

@@ -1,5 +1,3 @@
-/** Agent dashboard domain types. */
-
 export type LeadStage =
   | 'NEW'
   | 'CONTACTED'
@@ -102,4 +100,60 @@ export interface AgencyProfile {
   boostCredits: number;
   membershipLabel: string;
   autoFollowUp: boolean;
+}
+
+export interface AgentListingsResult {
+  listings: AgentListing[];
+  summary: {
+    activeCount: number;
+    totalCount: number;
+    totalLeads: number;
+  };
+}
+
+export interface AgentListingPerformance {
+  listing: AgentListing;
+  series: Array<{
+    date: string;
+    views: number;
+    leads: number;
+    saves: number;
+    calls: number;
+  }>;
+  recentLeads: AgentLead[];
+  period: string;
+}
+
+export interface AgentAnalyticsData {
+  period: string;
+  revenue: number;
+  revenueLabel: string;
+  revenueChangePercent: number | null;
+  avgConversionDays: number;
+  conversionRate: number;
+  funnel: {
+    views: number;
+    leads: number;
+    visits: number;
+    deals: number;
+  };
+  series: Array<{
+    date: string;
+    views: number;
+    leads: number;
+    visits: number;
+    deals: number;
+    revenue: number;
+  }>;
+  insight: string;
+}
+
+export interface AgentTeamResult {
+  members: AgentTeamMember[];
+  summary: {
+    totalMembers: number;
+    totalActiveListings: number;
+    maxTeamMembers: number;
+    tierLabel: string;
+  };
 }

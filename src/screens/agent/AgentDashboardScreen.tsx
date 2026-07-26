@@ -24,6 +24,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { fetchAgentDashboard } from '../../services/agent.service';
 import type { AgentDashboardData, AgentLead, AgentListing } from '../../types/agent.types';
 import type { AgentTabParamList, AgentStackParamList } from '../../navigation/types';
+import { navigateToMembership } from '../../utils/navigateToMembership';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<AgentTabParamList, 'AgentHome'>,
@@ -161,6 +162,8 @@ const AgentDashboardScreen: React.FC = () => {
     try {
       const d = await fetchAgentDashboard();
       setData(d);
+    } catch {
+      setData(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -183,7 +186,20 @@ const AgentDashboardScreen: React.FC = () => {
     );
   }
 
-  const d = data!;
+  if (!data) {
+    return (
+      <SafeAreaView style={styles.loadWrap} edges={['top']}>
+        <Text style={{ color: ON_SURF_VAR, textAlign: 'center', paddingHorizontal: 24 }}>
+          Unable to load agent dashboard. Pull to retry from another tab, or check your connection.
+        </Text>
+        <TouchableOpacity onPress={() => load()} style={{ marginTop: 16 }} activeOpacity={0.8}>
+          <Text style={{ color: NAVY, fontWeight: '700' }}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  const d = data;
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -338,7 +354,11 @@ const AgentDashboardScreen: React.FC = () => {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.renewBtn} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.renewBtn}
+              activeOpacity={0.85}
+              onPress={() => navigateToMembership(navigation)}
+            >
               <Text style={styles.renewBtnText}>RENEW NOW</Text>
             </TouchableOpacity>
           </View>

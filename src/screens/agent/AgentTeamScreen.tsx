@@ -21,6 +21,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { fetchAgentTeam } from '../../services/agent.service';
 import type { AgentTeamMember } from '../../types/agent.types';
 import type { AgentStackParamList } from '../../navigation/types';
+import { navigateToMembership } from '../../utils/navigateToMembership';
 
 const NAVY = '#00152e';
 const NAVY_CON = '#122a47';
@@ -94,6 +95,8 @@ const AgentTeamScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
 
   const [team, setTeam] = useState<AgentTeamMember[]>([]);
+  const [totalListings, setTotalListings] = useState(0);
+  const [tierLabel, setTierLabel] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -101,7 +104,11 @@ const AgentTeamScreen: React.FC = () => {
     if (isRefresh) setRefreshing(true);
     try {
       const data = await fetchAgentTeam();
-      setTeam(data);
+      setTeam(data.members);
+      setTotalListings(data.summary.totalActiveListings);
+      setTierLabel(data.summary.tierLabel);
+    } catch {
+      setTeam([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -147,43 +154,46 @@ const AgentTeamScreen: React.FC = () => {
                 <Text style={styles.countLabel}>Active Agents</Text>
               </View>
               <View style={styles.countChip}>
-                <Text style={[styles.countValue, { color: SECONDARY }]}>48</Text>
+                <Text style={[styles.countValue, { color: SECONDARY }]}>{totalListings}</Text>
                 <Text style={styles.countLabel}>Total Listings</Text>
               </View>
             </View>
           </View>
 
-          {/* Team list */}
           {team.map(member => (
             <TeamMemberCard key={member.id} member={member} />
           ))}
 
-          {/* Quarterly performance bento */}
           <View style={styles.bentoRow}>
             <View style={styles.quarterlyCard}>
-              <Text style={styles.quarterlyTitle}>Quarterly Performance</Text>
+              <Text style={styles.quarterlyTitle}>Team Snapshot</Text>
               <Text style={styles.quarterlyDesc}>
-                Your team has increased the closing rate by 18% since the last quarter.
+                {team.length} active member{team.length === 1 ? '' : 's'} managing {totalListings} listing
+                {totalListings === 1 ? '' : 's'}.
               </Text>
               <View style={styles.quarterlyStats}>
                 <View style={styles.quarterlyStat}>
-                  <Text style={styles.quarterlyStatValue}>₹4.2 Cr</Text>
-                  <Text style={styles.quarterlyStatLabel}>SALES VOLUME</Text>
+                  <Text style={styles.quarterlyStatValue}>{team.length}</Text>
+                  <Text style={styles.quarterlyStatLabel}>MEMBERS</Text>
                 </View>
                 <View style={styles.quarterlyStat}>
-                  <Text style={styles.quarterlyStatValue}>82%</Text>
-                  <Text style={styles.quarterlyStatLabel}>CLIENT RATING</Text>
+                  <Text style={styles.quarterlyStatValue}>{totalListings}</Text>
+                  <Text style={styles.quarterlyStatLabel}>LISTINGS</Text>
                 </View>
               </View>
             </View>
 
             <View style={styles.tierCard}>
               <Icon name="crown-outline" size={36} color={ON_SEC_CON} style={{ marginBottom: 8 }} />
-              <Text style={styles.tierTitle}>Tier Update</Text>
+              <Text style={styles.tierTitle}>Plan</Text>
               <Text style={styles.tierDesc}>
-                Currently at 'Heritage Master' tier. Unlock 'Continental' with 3 more hires.
+                {tierLabel ? `Currently on ${tierLabel}.` : 'Activate a membership to unlock team seats.'}
               </Text>
-              <TouchableOpacity style={styles.upgradeBtn} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.upgradeBtn}
+                activeOpacity={0.85}
+                onPress={() => navigateToMembership(navigation)}
+              >
                 <Text style={styles.upgradeBtnText}>Upgrade Agency</Text>
               </TouchableOpacity>
             </View>

@@ -323,7 +323,7 @@ const WishlistScreen: React.FC = () => {
           <Icon name="lock-outline" size={48} color="#777779" />
           <Text style={styles.emptyTitle}>Sign in required</Text>
           <Text style={styles.emptySub}>Log in to view properties you have saved.</Text>
-          <TouchableOpacity style={styles.btnPrimaryWide} onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity style={styles.btnPrimaryWide} onPress={() => navigation.navigate('Login' as never)}>
             <Text style={styles.btnPrimaryText}>Sign in</Text>
           </TouchableOpacity>
         </View>
@@ -365,7 +365,7 @@ const WishlistScreen: React.FC = () => {
       {sessionExpired ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorBannerText}>Session expired. Sign in again.</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Login' as never)}>
             <Text style={styles.errorLink}>Sign in</Text>
           </TouchableOpacity>
         </View>

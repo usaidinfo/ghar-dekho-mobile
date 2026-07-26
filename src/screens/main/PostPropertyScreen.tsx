@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm } from 'react-hook-form';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
@@ -27,6 +27,9 @@ import type { ListPropertyFormValues } from '../../types/list-property-form.type
 import { mapListPropertyFormToCreatePayload, orderPhotoUrisForUpload } from '../../utils/mapListPropertyFormToCreatePayload';
 import { forwardGeocode } from '../../utils/forwardGeocode';
 import { usePostGateAd } from '../../hooks/usePostGateAd';
+import { useMembershipAccess } from '../../hooks/useMembershipAccess';
+import MembershipRequiredModal from '../../components/membership/MembershipRequiredModal';
+import { getApiErrorMessage } from '../../services/auth.service';
 
 const GLASS = 'rgba(248, 249, 250, 0.92)';
 
@@ -70,6 +73,22 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   const navigation = useNavigation<PostNav>();
   const accessToken = useAuthStore(s => s.accessToken);
   const { status: adStatus, watched: adWatched, retry: retryAd } = usePostGateAd();
+  const {
+    hasActiveMembership,
+    handleApiError,
+    gateVisible,
+    gateReason,
+    gateMessage,
+    closeGate,
+    goUpgrade,
+    refreshMembership,
+  } = useMembershipAccess();
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshMembership();
+    }, [refreshMembership]),
+  );
 
   const form = useForm<ListPropertyFormValues>({
     defaultValues: initialValues ? mergeListPropertyDefaults(initialValues) : getListPropertyDefaultValues(),
@@ -79,6 +98,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   const busyDraft = pending === 'draft';
   const busyPublish = pending === 'publish';
   const submitting = pending !== 'idle';
+  const canSubmit = hasActiveMembership && adWatched;
 
   React.useEffect(() => {
     if (initialValues) {
@@ -87,8 +107,9 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   }, [form, initialValues]);
 
   const title = mode === 'edit' ? 'Edit Listing' : 'List Your Property';
-  const primaryLabel =
-    primaryActionLabel ?? (mode === 'edit' ? 'Save Changes' : 'Post Property Now');
+  const primaryLabel = !hasActiveMembership
+    ? 'Upgrade to list'
+    : (primaryActionLabel ?? (mode === 'edit' ? 'Save Changes' : 'Post Property Now'));
 
   const onBack = () => {
     if (navigation.canGoBack()) {
@@ -101,7 +122,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
   const requireAuth = useCallback((): boolean => {
     if (!accessToken) {
       Toast.show({ type: 'info', text1: 'Sign in required', text2: 'Log in to list your property.' });
-      navigation.navigate('Login');
+      navigation.navigate('Login' as never);
       return false;
     }
     return true;
@@ -109,11 +130,15 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
 
   const persistListing = useCallback(
     async (values: ListPropertyFormValues, publish: boolean) => {
-      if (!adWatched) {
-        Toast.show({ type: 'info', text1: 'Please watch the ad to continue.' });
+      if (!requireAuth()) {
         return;
       }
-      if (!requireAuth()) {
+      if (!hasActiveMembership) {
+        goUpgrade();
+        return;
+      }
+      if (!adWatched) {
+        Toast.show({ type: 'info', text1: 'Please watch the ad to continue.' });
         return;
       }
       if (publish) {
@@ -144,7 +169,6 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
           if (ll) {
             payload.latitude = ll.latitude;
             payload.longitude = ll.longitude;
-            // Keep form fields in sync for user + future edits
             form.setValue('latitude', String(ll.latitude));
             form.setValue('longitude', String(ll.longitude));
           } else {
@@ -153,15 +177,12 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
         }
 
         const photoOrder = orderPhotoUrisForUpload(values.photoUris, values.coverIndex);
-        // Debug: verify payload + picked URIs in Metro console
         // eslint-disable-next-line no-console
         console.log('POST property payload', payload);
         // eslint-disable-next-line no-console
         console.log('POST property photoOrder', photoOrder);
         const id = await createPropertyMultipart(payload, photoOrder);
 
-        // Backward-compat fallback: if for any reason server didn't accept files, try old endpoint.
-        // (No-op if `photoOrder` has no local URIs.)
         try {
           await uploadPropertyListingImages(id, photoOrder);
         } catch {
@@ -186,20 +207,51 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
           // eslint-disable-next-line no-console
           console.error('[PostProperty] persist failed', e);
         }
+        if (handleApiError(e)) {
+          return;
+        }
         Toast.show({
           type: 'error',
           text1: publish ? 'Could not post' : 'Could not save draft',
-          text2: e instanceof Error ? e.message : 'Try again',
+          text2: getApiErrorMessage(e),
         });
       } finally {
         setPending('idle');
       }
     },
-    [navigation, requireAuth, form, adWatched],
+    [
+      navigation,
+      requireAuth,
+      hasActiveMembership,
+      goUpgrade,
+      handleApiError,
+      form,
+      adWatched,
+    ],
   );
 
   const onSaveDraft = form.handleSubmit(values => persistListing(values, false));
   const onSubmit = form.handleSubmit(values => persistListing(values, true));
+
+  const onPrimaryPress = () => {
+    if (!hasActiveMembership) {
+      goUpgrade();
+      return;
+    }
+    void onSubmit();
+  };
+
+  const onDraftPress = () => {
+    if (!hasActiveMembership) {
+      Toast.show({
+        type: 'info',
+        text1: 'Membership needed',
+        text2: 'Activate a plan to save drafts and list properties.',
+      });
+      return;
+    }
+    void onSaveDraft();
+  };
 
   return (
     <View className="flex-1 bg-surface-page">
@@ -231,33 +283,53 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
           </ScrollView>
 
           <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            {!hasActiveMembership ? (
+              <View style={styles.membershipNudge}>
+                <Icon name="crown-outline" size={18} color="#D1A14E" />
+                <Text style={styles.membershipNudgeText}>
+                  Browse the form freely — membership is required to publish.
+                </Text>
+              </View>
+            ) : null}
+
             <View style={styles.actionsRow}>
               <TouchableOpacity
-                onPress={onSaveDraft}
+                onPress={onDraftPress}
                 activeOpacity={0.88}
-                style={styles.draftBtn}
-                disabled={submitting || !adWatched}
+                style={[styles.draftBtn, !canSubmit && styles.btnDisabled]}
+                disabled={submitting}
               >
                 {busyDraft ? (
                   <ActivityIndicator color="#495057" />
                 ) : (
-                  <Text className="text-center text-xs font-black uppercase tracking-widest text-on-surface-muted">
+                  <Text
+                    className="text-center text-xs font-black uppercase tracking-widest text-on-surface-muted"
+                    style={!canSubmit ? styles.btnDisabledText : undefined}
+                  >
                     Save Draft
                   </Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.88}
-                onPress={onSubmit}
-                style={styles.primaryBtn}
-                disabled={submitting || !adWatched}
+                onPress={onPrimaryPress}
+                style={[
+                  styles.primaryBtn,
+                  !hasActiveMembership && styles.upgradeBtn,
+                ]}
+                disabled={submitting}
               >
                 {busyPublish ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text className="text-center text-xs font-black uppercase tracking-widest text-on-primary">
-                    {primaryLabel}
-                  </Text>
+                  <View style={styles.primaryBtnInner}>
+                    {!hasActiveMembership ? (
+                      <Icon name="crown" size={16} color="#FFFFFF" />
+                    ) : null}
+                    <Text className="text-center text-xs font-black uppercase tracking-widest text-on-primary">
+                      {primaryLabel}
+                    </Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -271,7 +343,7 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                 <Icon name="wifi-off" size={40} color="#fff" />
                 <Text style={styles.adGateTitle}>Ad could not be loaded</Text>
                 <Text style={styles.adGateSub}>
-                  Check your internet connection and try again to continue posting.
+                  Check your internet connection and try again to continue.
                 </Text>
                 <TouchableOpacity
                   style={styles.adGateRetryBtn}
@@ -279,6 +351,9 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                   activeOpacity={0.88}
                 >
                   <Text style={styles.adGateRetryText}>Retry</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 14 }} onPress={onBack} activeOpacity={0.85}>
+                  <Text style={[styles.adGateSub, { textDecorationLine: 'underline' }]}>Go back</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -288,12 +363,20 @@ const PostPropertyScreen: React.FC<PostPropertyScreenProps> = ({
                   {adStatus === 'showing' ? 'Watching ad…' : 'Loading ad…'}
                 </Text>
                 <Text style={styles.adGateSub}>
-                  Watch this short ad to unlock posting your property.
+                  Watch this short ad to continue listing your property.
                 </Text>
               </>
             )}
           </View>
         ) : null}
+
+        <MembershipRequiredModal
+          visible={gateVisible}
+          reason={gateReason}
+          message={gateMessage}
+          onClose={closeGate}
+          onUpgrade={goUpgrade}
+        />
       </SafeAreaView>
     </View>
   );
@@ -382,6 +465,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  primaryBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  upgradeBtn: {
+    backgroundColor: '#122A47',
+  },
+  btnDisabled: {
+    opacity: 0.45,
+  },
+  btnDisabledText: {
+    opacity: 0.85,
+  },
+  membershipNudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(209,161,78,0.12)',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    maxWidth: 576,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  membershipNudgeText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#495057',
+    fontWeight: '600',
   },
   adGateOverlay: {
     position: 'absolute',
