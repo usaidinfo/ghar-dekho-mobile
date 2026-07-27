@@ -26,9 +26,9 @@
  * changes needed beyond updating .env.
  */
 
-import { Platform } from 'react-native';
+import {Platform} from 'react-native';
 import Config from 'react-native-config';
-import { TestIds } from 'react-native-google-mobile-ads';
+import {TestIds} from 'react-native-google-mobile-ads';
 
 function isTruthy(val: string | undefined): boolean {
   return String(val ?? '').toLowerCase() === 'true';
@@ -44,18 +44,37 @@ const appOpenAdsEnabled = isTruthy(Config.ENABLE_APP_OPEN_ADS);
 
 // ── Raw production IDs from .env (platform-selected) ──────────
 const raw = {
-  banner:        Platform.OS === 'android' ? Config.ADMOB_ANDROID_BANNER_ID        : Config.ADMOB_IOS_BANNER_ID,
-  interstitial:  Platform.OS === 'android' ? Config.ADMOB_ANDROID_INTERSTITIAL_ID  : Config.ADMOB_IOS_INTERSTITIAL_ID,
-  rewarded:      Platform.OS === 'android' ? Config.ADMOB_ANDROID_REWARDED_ID      : Config.ADMOB_IOS_REWARDED_ID,
-  appOpen:       Platform.OS === 'android' ? Config.ADMOB_ANDROID_APP_OPEN_ID      : Config.ADMOB_IOS_APP_OPEN_ID,
+  banner:
+    Platform.OS === 'android'
+      ? Config.ADMOB_ANDROID_BANNER_ID
+      : Config.ADMOB_IOS_BANNER_ID,
+  rewardedInterstitial:
+    Platform.OS === 'android'
+      ? Config.ADMOB_ANDROID_REWARDED_INTERSTITIAL_ID ??
+        Config.ADMOB_ANDROID_REWARDED_ID
+      : Config.ADMOB_IOS_REWARDED_INTERSTITIAL_ID ?? Config.ADMOB_IOS_REWARDED_ID,
+  native:
+    Platform.OS === 'android'
+      ? Config.ADMOB_ANDROID_NATIVE_ADVANCED_ID
+      : Config.ADMOB_IOS_NATIVE_ADVANCED_ID,
+  appOpen:
+    Platform.OS === 'android'
+      ? Config.ADMOB_ANDROID_APP_OPEN_ID
+      : Config.ADMOB_IOS_APP_OPEN_ID,
 };
 
 // ── Final IDs (test overrides production when testMode=true) ──
 const adUnitIds = {
-  banner:       testMode ? TestIds.ADAPTIVE_BANNER  : (raw.banner       ?? TestIds.ADAPTIVE_BANNER),
-  interstitial: testMode ? TestIds.INTERSTITIAL      : (raw.interstitial ?? TestIds.INTERSTITIAL),
-  rewarded:     testMode ? TestIds.REWARDED          : (raw.rewarded     ?? TestIds.REWARDED),
-  appOpen:      testMode ? TestIds.APP_OPEN          : (raw.appOpen      ?? TestIds.APP_OPEN),
+  banner: testMode
+    ? TestIds.ADAPTIVE_BANNER
+    : raw.banner ?? TestIds.ADAPTIVE_BANNER,
+  /** Full-screen rewarded interstitial (replaces classic interstitial placements). */
+  rewardedInterstitial: testMode
+    ? TestIds.REWARDED_INTERSTITIAL
+    : raw.rewardedInterstitial ?? TestIds.REWARDED_INTERSTITIAL,
+  /** Native Advanced — blends into listing feeds. */
+  native: testMode ? TestIds.NATIVE : raw.native ?? TestIds.NATIVE,
+  appOpen: testMode ? TestIds.APP_OPEN : raw.appOpen ?? TestIds.APP_OPEN,
 };
 
 export interface AdsConfig {
@@ -67,8 +86,8 @@ export interface AdsConfig {
   appOpenAdsEnabled: boolean;
   adUnitIds: {
     banner: string;
-    interstitial: string;
-    rewarded: string;
+    rewardedInterstitial: string;
+    native: string;
     appOpen: string;
   };
 }

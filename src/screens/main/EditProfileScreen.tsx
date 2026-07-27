@@ -30,7 +30,7 @@ import {
 } from '../../services/user.service';
 import { getApiErrorMessage, sendOtp } from '../../services/auth.service';
 import type { ProfileType } from '../../types/auth.types';
-import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
+import { useInstantRewardedAd } from '../../hooks/useInstantRewardedAd';
 
 const NAVY = '#122A47';
 const GOLD = '#D1A14E';
@@ -95,7 +95,7 @@ const EditProfileScreen: React.FC = () => {
   const [profileType, setProfileType] = useState<ProfileType>(user?.profileType ?? 'BUYER');
   const [genderOpen, setGenderOpen] = useState(false);
   const [dobOpen, setDobOpen] = useState(false);
-  const { show: showModeSwitchAd } = useInstantInterstitialAd();
+  const { show: showModeSwitchAd } = useInstantRewardedAd();
 
   // Pull fresh /me on mount so rich fields (bio, gender, DOB...) are populated
   // even right after login (login response stores a lighter projection).

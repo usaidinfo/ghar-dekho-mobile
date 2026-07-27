@@ -14,14 +14,16 @@ declare module 'react-native-config' {
 
     // Android ad unit IDs
     ADMOB_ANDROID_BANNER_ID?: string;
-    ADMOB_ANDROID_INTERSTITIAL_ID?: string;
     ADMOB_ANDROID_REWARDED_ID?: string;
+    ADMOB_ANDROID_REWARDED_INTERSTITIAL_ID?: string;
+    ADMOB_ANDROID_NATIVE_ADVANCED_ID?: string;
     ADMOB_ANDROID_APP_OPEN_ID?: string;
 
     // iOS ad unit IDs
     ADMOB_IOS_BANNER_ID?: string;
-    ADMOB_IOS_INTERSTITIAL_ID?: string;
     ADMOB_IOS_REWARDED_ID?: string;
+    ADMOB_IOS_REWARDED_INTERSTITIAL_ID?: string;
+    ADMOB_IOS_NATIVE_ADVANCED_ID?: string;
     ADMOB_IOS_APP_OPEN_ID?: string;
   }
   const Config: NativeConfig;

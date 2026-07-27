@@ -29,6 +29,8 @@ import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { useAuthStore } from '../../stores/auth.store';
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 import AppBannerAd from '../../components/ads/AppBannerAd';
+import AppNativeAdvancedAd from '../../components/ads/AppNativeAdvancedAd';
+import { withNativeAds, type PropertyListRow } from '../../utils/withNativeAds';
 
 const PRIMARY = '#00152e';
 const MUTED = '#44474d';
@@ -212,7 +214,12 @@ const WishlistScreen: React.FC = () => {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: WishlistRow }) => {
+    ({ item: row }: { item: PropertyListRow<WishlistRow> }) => {
+      if (row.kind === 'ad') {
+        return <AppNativeAdvancedAd />;
+      }
+
+      const item = row.item;
       const p = item.property;
       const loc = [p.locality, p.city].filter(Boolean).join(', ');
       const active = p.status === 'ACTIVE';
@@ -309,6 +316,8 @@ const WishlistScreen: React.FC = () => {
     [navigation, confirmRemove],
   );
 
+  const listRows = useMemo(() => withNativeAds(items, 4), [items]);
+
   if (!accessToken) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -381,8 +390,8 @@ const WishlistScreen: React.FC = () => {
       ) : null}
 
       <FlatList
-        data={items}
-        keyExtractor={i => i.id}
+        data={listRows}
+        keyExtractor={row => row.key}
         renderItem={renderItem}
         contentContainerStyle={[styles.listContent, { paddingBottom: bottomPad }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}

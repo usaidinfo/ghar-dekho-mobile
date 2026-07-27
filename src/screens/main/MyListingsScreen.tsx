@@ -31,6 +31,8 @@ import { formatInrPrice } from '../../utils/homePropertyMappers';
 import { useAuthStore } from '../../stores/auth.store';
 import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 import AppBannerAd from '../../components/ads/AppBannerAd';
+import AppNativeAdvancedAd from '../../components/ads/AppNativeAdvancedAd';
+import { withNativeAds, type PropertyListRow } from '../../utils/withNativeAds';
 import MembershipRequiredModal from '../../components/membership/MembershipRequiredModal';
 import { useMembershipAccess } from '../../hooks/useMembershipAccess';
 import { boostPropertyListing, featurePropertyListing } from '../../services/promotion.service';
@@ -486,6 +488,18 @@ const MyListingsScreen: React.FC = () => {
     [navigation, promoteListing, promoBusyId],
   );
 
+  const listRows = useMemo(() => withNativeAds(items, 4), [items]);
+
+  const renderRow = useCallback(
+    ({ item: row }: { item: PropertyListRow<MyListingItem> }) => {
+      if (row.kind === 'ad') {
+        return <AppNativeAdvancedAd />;
+      }
+      return renderCard({ item: row.item });
+    },
+    [renderCard],
+  );
+
   const profileUri = user?.profile?.profileImage;
 
   if (!accessToken) {
@@ -564,9 +578,9 @@ const MyListingsScreen: React.FC = () => {
       ) : null}
 
       <FlatList
-        data={items}
-        keyExtractor={i => i.id}
-        renderItem={renderCard}
+        data={listRows}
+        keyExtractor={row => row.key}
+        renderItem={renderRow}
         ListHeaderComponent={filterHeader}
         contentContainerStyle={[styles.listContent, { paddingBottom: bottomPad }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={NAVY} />}

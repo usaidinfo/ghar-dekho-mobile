@@ -29,7 +29,9 @@ import { PROPERTY_PLACEHOLDER_IMAGE } from '../../constants/images';
 import SearchHeader from '../../components/search/SearchHeader';
 import type { SearchFiltersState } from '../../components/search/SearchFiltersPanel';
 import AppBannerAd from '../../components/ads/AppBannerAd';
-import { useInterstitialAd } from '../../hooks/useInterstitialAd';
+import AppNativeAdvancedAd from '../../components/ads/AppNativeAdvancedAd';
+import { useRewardedInterstitialGate } from '../../hooks/useRewardedInterstitialGate';
+import { withNativeAds, type PropertyListRow } from '../../utils/withNativeAds';
 import SearchFiltersModal from '../../components/search/SearchFiltersModal';
 
 const NAVY = '#122A47';
@@ -51,7 +53,7 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 const SearchResultsScreen: React.FC<Props> = () => {
   const route = useRoute<Props['route']>();
   const navigation = useNavigation<Nav>();
-  const { tryShowInterstitial, trackAction } = useInterstitialAd();
+  const { tryShowRewarded, trackAction } = useRewardedInterstitialGate();
 
   const routeQuery = route.params?.query ?? '';
   const routeCategory = parseCategory(route.params?.category);
@@ -206,8 +208,15 @@ const SearchResultsScreen: React.FC<Props> = () => {
 
   const goBack = useCallback(() => navigation.goBack(), [navigation]);
 
+  const listRows = useMemo(() => withNativeAds(items, 4), [items]);
+
   const renderItem = useCallback(
-    ({ item }: { item: PropertyListItem }) => {
+    ({ item: row }: { item: PropertyListRow<PropertyListItem> }) => {
+      if (row.kind === 'ad') {
+        return <AppNativeAdvancedAd />;
+      }
+
+      const item = row.item;
       const img =
         item.images?.[0]?.imageUrl || item.images?.[0]?.thumbnailUrl || PROPERTY_PLACEHOLDER_IMAGE;
       const loc = [item.locality, item.city].filter(Boolean).join(', ');
@@ -217,7 +226,7 @@ const SearchResultsScreen: React.FC<Props> = () => {
           style={styles.card}
           onPress={() => {
             trackAction();
-            tryShowInterstitial();
+            tryShowRewarded();
             navigation.navigate('PropertyDetail', { propertyId: item.id });
           }}
           activeOpacity={0.88}
@@ -241,7 +250,7 @@ const SearchResultsScreen: React.FC<Props> = () => {
         </TouchableOpacity>
       );
     },
-    [navigation],
+    [navigation, trackAction, tryShowRewarded],
   );
 
   const listHeader = useMemo(
@@ -314,8 +323,8 @@ const SearchResultsScreen: React.FC<Props> = () => {
       ) : null}
 
       <FlatList
-        data={items}
-        keyExtractor={item => item.id}
+        data={listRows}
+        keyExtractor={row => row.key}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}
         contentContainerStyle={styles.listContent}

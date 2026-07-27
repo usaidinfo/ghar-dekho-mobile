@@ -24,7 +24,7 @@ import type { ProfileType } from '../../types/auth.types';
 import appPackage from '../../../package.json';
 import { fetchWishlist } from '../../services/wishlist.service';
 import { fetchMyListings } from '../../services/property.service';
-import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
+import { useInstantRewardedAd } from '../../hooks/useInstantRewardedAd';
 
 type ProfileNav = CompositeNavigationProp<
   BottomTabNavigationProp<BottomTabParamList, 'Profile'>,
@@ -52,7 +52,7 @@ const ProfileScreen: React.FC = () => {
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [wishlistCount, setWishlistCount] = React.useState<number | null>(null);
   const [listingsCount, setListingsCount] = React.useState<number | null>(null);
-  const { show: showModeSwitchAd } = useInstantInterstitialAd();
+  const { show: showModeSwitchAd } = useInstantRewardedAd();
 
   const isSignedIn = Boolean(hasHydrated && accessToken && user);
 

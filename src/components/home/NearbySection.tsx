@@ -1,12 +1,15 @@
 /**
  * @file NearbySection.tsx
  * @description "Near Your Property" section with horizontal NearbyCard list.
+ * Native Advanced ads are interleaved in the swipe list for free users.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, FlatList, StyleSheet } from 'react-native';
 import NearbyCard from './NearbyCard';
 import SectionHeader from './SectionHeader';
+import AppNativeAdvancedAd from '../ads/AppNativeAdvancedAd';
+import { withNativeAds } from '../../utils/withNativeAds';
 import type { NearbyProperty } from '../../types/property.types';
 
 interface NearbySectionProps {
@@ -20,6 +23,7 @@ const NearbySection: React.FC<NearbySectionProps> = ({ data, locationName, onCar
   const displayName = locationName
     ? locationName.split(',')[0]?.trim()
     : null;
+  const rows = useMemo(() => withNativeAds(data, 3), [data]);
 
   return (
     <View style={styles.wrapper}>
@@ -29,14 +33,18 @@ const NearbySection: React.FC<NearbySectionProps> = ({ data, locationName, onCar
         onViewAll={onViewAll}
       />
       <FlatList
-        data={data}
-        keyExtractor={item => item.id}
+        data={rows}
+        keyExtractor={row => row.key}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
-        renderItem={({ item }) => (
-          <NearbyCard property={item} onPress={() => onCardPress?.(item)} />
-        )}
+        renderItem={({ item: row }) =>
+          row.kind === 'ad' ? (
+            <AppNativeAdvancedAd variant="nearby" />
+          ) : (
+            <NearbyCard property={row.item} onPress={() => onCardPress?.(row.item)} />
+          )
+        }
       />
     </View>
   );

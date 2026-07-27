@@ -1,4 +1,8 @@
 {
   "name": "GharDekho",
-  "displayName": "Ghar Dekho"
+  "displayName": "Ghar Dekho",
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-4255498852279401~2123899753",
+    "ios_app_id": "ca-app-pub-4255498852279401~2123899753"
+  }
 }

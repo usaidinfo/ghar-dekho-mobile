@@ -24,7 +24,7 @@ import { fetchAgencyProfile, fetchAgentTeam, saveAgencyProfile } from '../../ser
 import { useAuthStore } from '../../stores/auth.store';
 import type { AgencyProfile } from '../../types/agent.types';
 import type { AgentTabParamList, AgentStackParamList } from '../../navigation/types';
-import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
+import { useInstantRewardedAd } from '../../hooks/useInstantRewardedAd';
 import { navigateToMembership } from '../../utils/navigateToMembership';
 
 type Nav = CompositeNavigationProp<
@@ -105,7 +105,7 @@ const AgentMoreScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const logout = useAuthStore(s => s.logout);
-  const { show: showModeSwitchAd } = useInstantInterstitialAd();
+  const { show: showModeSwitchAd } = useInstantRewardedAd();
 
   const [profile, setProfile] = useState<AgencyProfile | null>(null);
   const [autoFollowUp, setAutoFollowUp] = useState(true);

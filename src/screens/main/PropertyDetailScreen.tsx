@@ -32,7 +32,7 @@ import { savePriceAlert } from '../../services/alert.service';
 import { useAuthStore } from '../../stores/auth.store';
 import { getApiErrorMessage } from '../../services/auth.service';
 import { useMembershipAccess } from '../../hooks/useMembershipAccess';
-import { useInstantInterstitialAd } from '../../hooks/useInstantInterstitialAd';
+import { useInstantRewardedAd } from '../../hooks/useInstantRewardedAd';
 import MembershipRequiredModal from '../../components/membership/MembershipRequiredModal';
 import type { MainStackParamList } from '../../navigation/types';
 import type { PropertyDetail, VirtualTourItem } from '../../types/property-detail.types';
@@ -74,7 +74,7 @@ const PropertyDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     openGate,
     refreshMembership,
   } = useMembershipAccess();
-  const { show: showDetailAd } = useInstantInterstitialAd();
+  const { show: showDetailAd } = useInstantRewardedAd();
   const detailAdShownFor = useRef<string | null>(null);
 
   const [property, setProperty] = useState<PropertyDetail | null>(null);

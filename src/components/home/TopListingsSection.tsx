@@ -1,12 +1,15 @@
 /**
  * @file TopListingsSection.tsx
  * @description "Top Listings in [City]" section with horizontal scroll.
+ * Native Advanced ads are interleaved in the swipe list for free users.
  */
 
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import TopListingItem from './TopListingItem';
+import AppNativeAdvancedAd from '../ads/AppNativeAdvancedAd';
+import { withNativeAds } from '../../utils/withNativeAds';
 import type { TopListing } from '../../types/property.types';
 
 interface TopListingsSectionProps {
@@ -23,13 +26,13 @@ const TopListingsSection: React.FC<TopListingsSectionProps> = ({
   onViewAll,
 }) => {
   const listRef = useRef<FlatList>(null);
+  const rows = useMemo(() => withNativeAds(data, 3), [data]);
 
   const scrollLeft = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
   const scrollRight = () => listRef.current?.scrollToEnd({ animated: true });
 
   return (
     <View style={styles.wrapper}>
-      {/* Header: title + nav arrows on same row */}
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
           <Text style={styles.title}>{`Top Listings in ${city}`}</Text>
@@ -47,14 +50,18 @@ const TopListingsSection: React.FC<TopListingsSectionProps> = ({
 
       <FlatList
         ref={listRef}
-        data={data}
-        keyExtractor={item => item.id}
+        data={rows}
+        keyExtractor={row => row.key}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
-        renderItem={({ item }) => (
-          <TopListingItem listing={item} onPress={() => onItemPress?.(item)} />
-        )}
+        renderItem={({ item: row }) =>
+          row.kind === 'ad' ? (
+            <AppNativeAdvancedAd variant="topListing" />
+          ) : (
+            <TopListingItem listing={row.item} onPress={() => onItemPress?.(row.item)} />
+          )
+        }
       />
     </View>
   );
