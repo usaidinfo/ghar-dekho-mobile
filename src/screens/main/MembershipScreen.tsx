@@ -24,11 +24,13 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Toast from 'react-native-toast-message';
+import RazorpayCheckout from 'react-native-razorpay';
+import Config from 'react-native-config';
 
 import MembershipAccountTypeStep from '../../components/membership/MembershipAccountTypeStep';
 import MembershipPlansStep from '../../components/membership/MembershipPlansStep';
 import { getAccountTypeDefinition } from '../../constants/membershipPlans';
-import { membershipService, userService } from '../../services';
+import { paymentService, userService } from '../../services';
 import { useAuthStore } from '../../stores/auth.store';
 import {
   formatPlanCheckoutLabel,
@@ -176,7 +178,8 @@ const MembershipActiveContent: React.FC<ActiveContentProps> = ({
         <View style={styles.demoNote}>
           <Icon name="information-outline" size={16} color={SECONDARY_DARK} />
           <Text style={styles.demoNoteText}>
-            Demo membership active on this device until Razorpay is connected.
+            Local demo membership — tap a plan and pay with Razorpay test checkout to activate for
+            real.
           </Text>
         </View>
       ) : null}
@@ -341,16 +344,47 @@ const MembershipScreen: React.FC = () => {
       if (!userId || paying) return;
       setPaying(true);
       try {
-        if (mode === 'renew') {
-          await membershipService.renewDemoMembership();
-        } else if (mode === 'plan-upgrade') {
-          await membershipService.upgradeDemoMembership(options.planTier);
-        } else {
-          await membershipService.activateDemoMembership({
-            accountType: options.accountType,
-            planTier: options.planTier,
-          });
-        }
+        const paymentMode =
+          mode === 'renew' ? 'renew' : mode === 'plan-upgrade' ? 'upgrade' : 'activate';
+
+        const order = await paymentService.createMembershipOrder({
+          mode: paymentMode,
+          accountType: paymentMode === 'activate' ? options.accountType : undefined,
+          planTier:
+            paymentMode === 'renew' ? undefined : options.planTier,
+        });
+
+        const displayName = [currentUser?.profile?.firstName, currentUser?.profile?.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+
+        const checkoutResult = await RazorpayCheckout.open({
+          description: `${options.planLabel} membership`,
+          currency: order.currency || 'INR',
+          key: order.keyId || Config.RAZORPAY_KEY_ID || '',
+          amount: order.amount,
+          name: 'Ghar Dekho',
+          order_id: order.orderId,
+          prefill: {
+            email: currentUser?.email || undefined,
+            contact: currentUser?.phone || undefined,
+            name: displayName || undefined,
+          },
+          theme: { color: PRIMARY },
+          notes: {
+            paymentId: order.paymentId,
+            plan: options.planLabel,
+          },
+        });
+
+        await paymentService.verifyMembershipPayment({
+          paymentId: order.paymentId,
+          razorpay_order_id: checkoutResult.razorpay_order_id,
+          razorpay_payment_id: checkoutResult.razorpay_payment_id,
+          razorpay_signature: checkoutResult.razorpay_signature,
+        });
+
         const user = await userService.fetchCurrentUser();
         setCurrentUser(user);
         await useAuthStore.getState().refreshCurrentUser().catch(() => undefined);
@@ -366,16 +400,29 @@ const MembershipScreen: React.FC = () => {
           text2: `${options.planLabel} active for ${options.planDays ?? 30} days.`,
         });
       } catch (err) {
+        const message =
+          typeof err === 'object' && err && 'description' in err
+            ? String((err as { description?: string }).description || 'Payment cancelled')
+            : err instanceof Error
+              ? err.message
+              : 'Please try again.';
+        const cancelled =
+          typeof err === 'object' &&
+          err &&
+          'code' in err &&
+          (Number((err as { code?: number }).code) === 0 ||
+            Number((err as { code?: number }).code) === 2);
+
         Toast.show({
-          type: 'error',
-          text1: 'Checkout failed',
-          text2: err instanceof Error ? err.message : 'Please try again.',
+          type: cancelled ? 'info' : 'error',
+          text1: cancelled ? 'Payment cancelled' : 'Checkout failed',
+          text2: cancelled ? 'No charge was made.' : message,
         });
       } finally {
         setPaying(false);
       }
     },
-    [paying, userId],
+    [paying, userId, currentUser],
   );
 
   const confirmPlanCheckout = (plan: MembershipPlanDefinition) => {
@@ -383,7 +430,7 @@ const MembershipScreen: React.FC = () => {
     const options = buildCheckoutOptions(selectedAccountType, plan);
     Alert.alert(
       `Subscribe to ${options.planLabel}`,
-      `Pay ₹${options.priceInr} for ${options.planDays ?? 30} days?\n\nDemo checkout on this device until Razorpay is live.`,
+      `Pay ₹${options.priceInr} for ${options.planDays ?? 30} days via Razorpay (test mode — no real money).`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Pay Now', onPress: () => runCheckout('upgrade', options) },
@@ -399,7 +446,7 @@ const MembershipScreen: React.FC = () => {
     const options = buildCheckoutOptions(accountType, plan);
     Alert.alert(
       `Upgrade to ${options.planLabel}`,
-      `Pay ₹${options.priceInr} for a fresh ${options.planDays ?? 30}-day period on the higher plan?\n\nDemo upgrade until Razorpay is live.`,
+      `Pay ₹${options.priceInr} for a fresh ${options.planDays ?? 30}-day period on the higher plan via Razorpay (test mode).`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Upgrade Now', onPress: () => runCheckout('plan-upgrade', options) },
@@ -411,7 +458,7 @@ const MembershipScreen: React.FC = () => {
     const summary = buildRenewSummary(currentUser);
     Alert.alert(
       'Renew Membership',
-      `Extend ${summary.planLabel} by ${summary.planDays} days for ₹${summary.priceInr}?`,
+      `Extend ${summary.planLabel} by ${summary.planDays} days for ₹${summary.priceInr} via Razorpay (test mode)?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
