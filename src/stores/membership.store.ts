@@ -32,7 +32,7 @@ export interface LocalMembership {
 }
 
 interface MembershipState {
-  /** Local demo subscription until Razorpay + backend are wired. Keyed by user id. */
+  /** Local demo subscription until PayU + backend are wired. Keyed by user id. */
   byUserId: Record<string, LocalMembership>;
   hasHydrated: boolean;
   activate: (userId: string, options: ActivateMembershipOptions) => LocalMembership;
@@ -119,7 +119,7 @@ export const useMembershipStore = create<MembershipState>()(
   ),
 );
 
-/** Simulates Razorpay checkout delay until the real gateway is integrated. */
+/** Simulates PayU checkout delay until the real gateway is integrated. */
 export function simulateMembershipPayment(ms = 1400): Promise<void> {
   return new Promise(resolve => {
     setTimeout(resolve, ms);

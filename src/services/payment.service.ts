@@ -12,25 +12,73 @@ export interface CreateMembershipOrderPayload {
   planTier?: MembershipPlanTier;
 }
 
+export interface PayUCheckoutParams {
+  key: string;
+  txnid: string;
+  amount: string;
+  productinfo: string;
+  firstname: string;
+  email: string;
+  phone: string;
+  surl: string;
+  furl: string;
+  hash: string;
+  udf1: string;
+  udf2: string;
+  udf3: string;
+  udf4: string;
+  udf5: string;
+  service_provider?: string;
+}
+
 export interface MembershipPaymentOrder {
   paymentId: string;
+  txnid: string;
   orderId: string;
-  amount: number;
+  amount: string;
+  amountPaise: number;
   currency: string;
+  key: string;
   keyId: string;
+  hash: string;
+  productinfo: string;
+  firstname: string;
+  email: string;
+  phone: string;
+  surl: string;
+  furl: string;
+  udf1: string;
+  udf2: string;
+  udf3: string;
+  udf4: string;
+  udf5: string;
+  paymentUrl: string;
+  provider: 'PAYU';
+  environment: 'test' | 'live';
   planName: string;
   planDays: number;
   priceInr: number;
   mode: MembershipPaymentMode;
   accountType: MembershipAccountType;
   planTier: MembershipPlanTier;
+  payuParams: PayUCheckoutParams;
 }
 
 export interface VerifyMembershipPaymentPayload {
   paymentId: string;
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
+  txnid: string;
+  status: string;
+  hash: string;
+  amount: string | number;
+  mihpayid?: string;
+  productinfo?: string;
+  firstname?: string;
+  email?: string;
+  udf1?: string;
+  udf2?: string;
+  udf3?: string;
+  udf4?: string;
+  udf5?: string;
 }
 
 function apiErrorMessage(err: unknown, fallback: string): string {
