@@ -27,6 +27,7 @@
     "jwt-decode": "^4.0.0",
     "lottie-react-native": "^7.2.2",
     "nativewind": "^2.0.11",
+    "payu-non-seam-less-react": "^4.2.9",
     "react": "19.0.0",
     "react-hook-form": "^7.62.0",
     "react-native": "0.79.2",

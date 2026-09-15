@@ -21,6 +21,14 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
+allprojects {
+    repositories {
+        maven {
+            url "https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android"
+        }
+    }
+}
+
 subprojects { project ->
     def configureProject = {
         if (project.plugins.hasPlugin('com.android.application') || 

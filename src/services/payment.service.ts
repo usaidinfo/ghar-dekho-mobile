@@ -53,6 +53,9 @@ export interface MembershipPaymentOrder {
   udf4: string;
   udf5: string;
   paymentUrl: string;
+  /** Tokenized path to open checkout in Chrome Custom Tabs (Android). */
+  launchToken?: string;
+  launchPath?: string;
   provider: 'PAYU';
   environment: 'test' | 'live';
   planName: string;
@@ -122,5 +125,27 @@ export async function verifyMembershipPayment(
     return data.data;
   } catch (err) {
     throw new Error(apiErrorMessage(err, 'Failed to verify payment'));
+  }
+}
+
+/** CheckoutPro dynamic hash — salt stays on backend. */
+export async function generatePayUHash(params: {
+  hashString: string;
+  postSalt?: string;
+}): Promise<string> {
+  try {
+    const { data } = await httpClient.post<ApiSuccess<{ hash: string }>>(
+      '/api/payments/payu/hash',
+      {
+        hashString: params.hashString,
+        postSalt: params.postSalt ?? '',
+      },
+    );
+    if (!data.success || !data.data?.hash) {
+      throw new Error(data.message || 'Failed to generate PayU hash');
+    }
+    return data.data.hash;
+  } catch (err) {
+    throw new Error(apiErrorMessage(err, 'Failed to generate PayU hash'));
   }
 }
