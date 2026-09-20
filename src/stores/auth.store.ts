@@ -20,7 +20,12 @@ interface AuthState {
   refreshCurrentUser: () => Promise<void>;
   clearAuth: () => void;
   loginWithPassword: (identifier: string, password: string) => Promise<void>;
-  loginWithOtp: (payload: { email?: string; phone?: string; otp: string }) => Promise<void>;
+  loginWithOtp: (payload: {
+    email?: string;
+    phone?: string;
+    otp?: string;
+    accessToken?: string;
+  }) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
 }

@@ -3,6 +3,7 @@ declare module 'react-native-config' {
     API_BASE_URL?: string;
     CHAT_SOCKET_URL?: string;
     PAYU_MERCHANT_KEY?: string;
+    MSG91_WIDGET_ID?: string;
 
     // AdMob global flags
     ADS_ENABLED?: string;

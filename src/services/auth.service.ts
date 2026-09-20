@@ -73,8 +73,22 @@ export async function sendOtp(params: {
   email?: string;
   phone?: string;
   type: OtpType;
-}): Promise<{ otp?: string }> {
-  const { data } = await httpClient.post<ApiSuccess<{ otp?: string }>>('/api/auth/send-otp', params);
+}): Promise<{
+  otp?: string;
+  channel?: 'EMAIL' | 'MSG91_WHATSAPP';
+  widgetRequired?: boolean;
+  msg91Phone?: string;
+  phone?: string;
+}> {
+  const { data } = await httpClient.post<
+    ApiSuccess<{
+      otp?: string;
+      channel?: 'EMAIL' | 'MSG91_WHATSAPP';
+      widgetRequired?: boolean;
+      msg91Phone?: string;
+      phone?: string;
+    }>
+  >('/api/auth/send-otp', params);
   if (!data.success) throw new Error(data.message || 'Failed to send OTP');
   return data.data ?? {};
 }
@@ -96,6 +110,9 @@ export async function loginWithPassword(
 }
 
 export async function loginWithOtp(payload: LoginOtpPayload): Promise<AuthResponseData> {
+  if (!payload.otp && !payload.accessToken) {
+    throw new Error('OTP is required');
+  }
   const { data } = await httpClient.post<ApiSuccess<AuthResponseData>>('/api/auth/login-otp', payload);
   if (!data.success || !data.data?.accessToken) {
     throw new Error(data.message || 'Login failed');

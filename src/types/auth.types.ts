@@ -49,7 +49,10 @@ export interface LoginPasswordPayload {
 export interface LoginOtpPayload {
   email?: string;
   phone?: string;
-  otp: string;
+  /** Email OTP (DB) OR unused when accessToken is set */
+  otp?: string;
+  /** MSG91 WhatsApp widget access-token after client verify */
+  accessToken?: string;
 }
 
 export interface RegisterPayload {

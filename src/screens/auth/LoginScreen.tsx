@@ -10,12 +10,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import Toast from 'react-native-toast-message';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TextInput as PaperInput, useTheme } from 'react-native-paper';
 import { Button } from '../../components/ui/Button';
 import type { AuthStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../stores/auth.store';
 import * as authService from '../../services/auth.service';
+import * as msg91Otp from '../../services/msg91Otp.service';
 
 type LoginNav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -41,25 +41,33 @@ export default function LoginScreen() {
     }
     setSendingOtp(true);
     try {
-      const { email, phone } = mode === 'email'
-        ? { email: id.toLowerCase(), phone: undefined }
-        : authService.parseIdentifier(id);
-      if (!email && !phone) {
-        Toast.show({ type: 'error', text1: 'Enter a valid email or phone' });
+      if (mode === 'email') {
+        const email = id.toLowerCase();
+        const res = await authService.sendOtp({ email, type: 'LOGIN' });
+        setOtpSent(true);
+        if (__DEV__ && res.otp) {
+          Toast.show({ type: 'info', text1: `Dev OTP: ${res.otp}` });
+        } else {
+          Toast.show({ type: 'success', text1: 'Verification code sent to email' });
+        }
         return;
       }
-      const res = await authService.sendOtp({
-        ...(email ? { email } : { phone }),
-        type: 'LOGIN',
-      });
-      setOtpSent(true);
-      if (__DEV__ && res.otp) {
-        Toast.show({ type: 'info', text1: `Dev OTP: ${res.otp}` });
-      } else {
-        Toast.show({ type: 'success', text1: 'Verification code sent' });
+
+      const { phone } = authService.parseIdentifier(id);
+      if (!phone) {
+        Toast.show({ type: 'error', text1: 'Enter a valid phone number' });
+        return;
       }
+
+      await authService.sendOtp({ phone, type: 'LOGIN' });
+      await msg91Otp.sendWhatsAppOtp(phone);
+      setOtpSent(true);
+      Toast.show({ type: 'success', text1: 'OTP sent on WhatsApp' });
     } catch (e) {
-      Toast.show({ type: 'error', text1: authService.getApiErrorMessage(e) });
+      Toast.show({
+        type: 'error',
+        text1: e instanceof Error ? e.message : authService.getApiErrorMessage(e),
+      });
     } finally {
       setSendingOtp(false);
     }
@@ -68,21 +76,28 @@ export default function LoginScreen() {
   const onOtpLogin = async (data: { identifier: string; otp: string }) => {
     try {
       const id = data.identifier.trim();
-      const { email, phone } = mode === 'email'
-        ? { email: id.toLowerCase(), phone: undefined }
-        : authService.parseIdentifier(id);
-      if (!email && !phone) {
-        Toast.show({ type: 'error', text1: 'Enter a valid email or phone' });
+      const code = data.otp.trim();
+
+      if (mode === 'email') {
+        await loginWithOtp({ email: id.toLowerCase(), otp: code });
+        Toast.show({ type: 'success', text1: 'Welcome back!' });
         return;
       }
-      await loginWithOtp({
-        ...(email ? { email } : { phone }),
-        otp: data.otp.trim(),
-      });
+
+      const { phone } = authService.parseIdentifier(id);
+      if (!phone) {
+        Toast.show({ type: 'error', text1: 'Enter a valid phone number' });
+        return;
+      }
+
+      const { accessToken } = await msg91Otp.verifyWhatsAppOtp(code);
+      await loginWithOtp({ phone, accessToken });
       Toast.show({ type: 'success', text1: 'Welcome back!' });
-      // Navigator automatically switches to AppNavigator when user state is set.
     } catch (e) {
-      Toast.show({ type: 'error', text1: authService.getApiErrorMessage(e) });
+      Toast.show({
+        type: 'error',
+        text1: e instanceof Error ? e.message : authService.getApiErrorMessage(e),
+      });
     }
   };
 
@@ -117,7 +132,7 @@ export default function LoginScreen() {
                 className={`flex-1 py-3 px-2 rounded-full items-center justify-center ${mode === 'phone' ? 'bg-primary shadow-sm' : ''}`}
               >
                 <Text className={`text-xs font-bold text-center ${mode === 'phone' ? 'text-white' : 'text-neutral'}`}>
-                  Phone OTP
+                  WhatsApp OTP
                 </Text>
               </TouchableOpacity>
             </View>
@@ -154,9 +169,15 @@ export default function LoginScreen() {
 
             <View className="mt-2 space-y-4">
               <Button
-                title={otpSent ? 'Resend code' : 'Send verification code'}
+                title={
+                  otpSent
+                    ? 'Resend code'
+                    : mode === 'phone'
+                      ? 'Send WhatsApp OTP'
+                      : 'Send verification code'
+                }
                 variant="outline"
-                icon="sms"
+                icon={mode === 'phone' ? 'chat' : 'sms'}
                 loading={sendingOtp}
                 onPress={sendLoginOtp}
                 disabled={!identifier?.trim()}
@@ -171,7 +192,7 @@ export default function LoginScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <PaperInput
                     mode="outlined"
-                    label="Verification code"
+                    label={mode === 'phone' ? 'WhatsApp OTP' : 'Verification code'}
                     value={value}
                     onChangeText={onChange}
                     onBlur={onBlur}

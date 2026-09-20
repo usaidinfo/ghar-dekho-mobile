@@ -128,7 +128,9 @@ httpClient.interceptors.response.use(
       original.url?.includes('/api/auth/login') ||
       original.url?.includes('/api/auth/register') ||
       original.url?.includes('/api/auth/refresh-token') ||
-      original.url?.includes('/api/auth/send-otp')
+      original.url?.includes('/api/auth/send-otp') ||
+      original.url?.includes('/api/auth/msg91-widget-config') ||
+      original.url?.includes('/api/auth/login-otp')
     ) {
       return Promise.reject(error);
     }
